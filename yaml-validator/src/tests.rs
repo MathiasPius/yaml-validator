@@ -1,4 +1,4 @@
-use super::{YamlSchema, YamlContext};
+use super::{YamlContext, YamlSchema};
 
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
@@ -164,7 +164,9 @@ dict:
 fn test_dictionary_validation() {
     let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA);
 
-    assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES, None).is_ok());
+    assert!(schema
+        .validate_str(&DICTIONARY_WITH_CORRECT_TYPES, None)
+        .is_ok());
     assert_eq!(
         format!(
             "{}",
@@ -175,7 +177,6 @@ fn test_dictionary_validation() {
         "$.dict.hello: wrong type, expected `number` got `String(\"world\")`"
     );
 }
-
 
 const SCHEMA_WITH_URI: &'static str = r#"---
 uri: myuri/v1
@@ -198,10 +199,10 @@ propref:
 
 #[test]
 fn test_schema_reference() {
-    let context = YamlContext::from_schemas(vec![
-        YamlSchema::from_str(SCHEMA_WITH_URI),
-    ]);
+    let context = YamlContext::from_schemas(vec![YamlSchema::from_str(SCHEMA_WITH_URI)]);
 
     let schema = YamlSchema::from_str(SCHEMA_WITH_REFERENCE);
-    schema.validate_str(&YAML_FILE_WITH_REFERENCE, Some(&context)).unwrap();
+    schema
+        .validate_str(&YAML_FILE_WITH_REFERENCE, Some(&context))
+        .unwrap();
 }

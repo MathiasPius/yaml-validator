@@ -70,14 +70,14 @@ impl<'a> YamlValidator<'a> for DataString {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataReference {
-    pub uri: String
+    pub uri: String,
 }
 
 impl<'a> YamlValidator<'a> for DataReference {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let Some(ctx) = context {
             if let Some(schema) = ctx.lookup(&self.uri) {
-                return DataObject::validate(&schema.schema, value, context)
+                return DataObject::validate(&schema.schema, value, context);
             }
             return Err(YamlValidationError::MissingSchema(&self.uri).into());
         }
@@ -142,7 +142,11 @@ struct DataObject {
 }
 
 impl DataObject {
-    pub fn validate<'a>(properties: &'a Vec<Property>, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    pub fn validate<'a>(
+        properties: &'a Vec<Property>,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> Result<'a> {
         if let Value::Mapping(ref obj) = value {
             for prop in properties.iter() {
                 if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
@@ -180,7 +184,7 @@ enum PropertyType {
     #[serde(rename = "object")]
     DataObject(DataObject),
     #[serde(rename = "reference")]
-    DataReference(DataReference)
+    DataReference(DataReference),
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
@@ -243,14 +247,12 @@ pub struct YamlContext {
 
 impl YamlContext {
     pub fn new() -> Self {
-        YamlContext {
-            schemas: vec!()
-        }
+        YamlContext { schemas: vec![] }
     }
 
     pub fn from_schemas(schemas: Vec<YamlSchema>) -> Self {
         YamlContext {
-            schemas: schemas.into()
+            schemas: schemas.into(),
         }
     }
 
@@ -266,6 +268,6 @@ impl YamlContext {
                 }
             }
         }
-        return None
+        return None;
     }
 }
