@@ -71,7 +71,7 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
         schema
             .validate_str(&yaml, None)
             .map_err(|e| Error::ValidationError(e))?;
-        println!("{:?} valid!", &yamlfile);
+        println!("valid: {:?}", &yamlfile);
     }
 
     Ok(())
@@ -83,7 +83,7 @@ fn main() {
     match secret_main(&opt) {
         Ok(()) => println!("All files validated successfully!"),
         Err(e) => {
-            println!("Failed! {}", e);
+            println!("failed: {}", e);
             std::process::exit(1);
         }
     }
