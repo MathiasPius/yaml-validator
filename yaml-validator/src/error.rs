@@ -1,6 +1,61 @@
 use thiserror::Error;
 
-pub type Result<'a> = std::result::Result<(), YamlValidationError<'a>>;
+pub type Result<'a> = std::result::Result<(), StatefulResult<'a>>;
+
+pub struct StatefulResult<'a> {
+    pub error: YamlValidationError<'a>,
+    pub path: Vec<String>,
+}
+
+impl<'a> std::fmt::Display for StatefulResult<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_> ) -> std::fmt::Result {
+        for segment in self.path.iter().rev() {
+            write!(f, "{}", segment)?;
+        }
+        write!(f, ": {}", self.error)
+    }
+}
+
+pub trait PathContext<'a> {
+    fn prepend(self, segment: String) -> Self;
+}
+
+impl<'a> PathContext<'a> for Result<'a> {
+    fn prepend(self, segment: String) -> Self {
+        self.map_err(|mut state| {
+            state.path.push(segment);
+            state
+        })
+    }
+}
+
+impl<'a> Into<StatefulResult<'a>> for YamlValidationError<'a> {
+    fn into(self) -> StatefulResult<'a> {
+        StatefulResult {
+            error: self,
+            path: vec!()
+        }
+    }
+}
+
+impl<'a> Into<StatefulResult<'a>> for StringValidationError {
+    fn into(self) -> StatefulResult<'a> {
+        StatefulResult {
+            error: self.into(),
+            path: vec!()
+        }
+    }
+}
+
+impl<'a> Into<StatefulResult<'a>> for DictionaryValidationError<'a> {
+    fn into(self) -> StatefulResult<'a> {
+        StatefulResult {
+            error: self.into(),
+            path: vec!()
+        }
+    }
+}
+
 
 #[derive(Error, Debug)]
 pub enum YamlValidationError<'a> {

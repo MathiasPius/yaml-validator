@@ -33,7 +33,7 @@ impl<'a> YamlValidator<'a> for DataNumber {
         if let Value::Number(_) = value {
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("number", value))
+            Err(YamlValidationError::WrongType("number", value).into())
         }
     }
 }
@@ -63,7 +63,7 @@ impl<'a> YamlValidator<'a> for DataString {
 
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("string", value))
+            Err(YamlValidationError::WrongType("string", value).into())
         }
     }
 }
@@ -79,19 +79,16 @@ impl<'a> YamlValidator<'a> for DataDictionary {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
                 if let Some(ref key) = self.key {
-                    key.validate(item.0)
-                        .map_err(|e| DictionaryValidationError::KeyValidationError(Box::new(e)))?;
+                    key.validate(item.0).prepend(format!(".{}", item.0.as_str().unwrap_or("<non-string field>")))?;
                 }
 
                 if let Some(ref value) = self.value {
-                    value.validate(item.1).map_err(|e| {
-                        DictionaryValidationError::ValueValidationError(Box::new(e))
-                    })?;
+                    value.validate(item.1).prepend(format!(".{}", item.0.as_str().unwrap_or("<non-string field>")))?;
                 }
             }
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("dictionary", value))
+            Err(YamlValidationError::WrongType("dictionary", value).into())
         }
     }
 }
@@ -104,12 +101,12 @@ struct DataList {
 impl<'a> YamlValidator<'a> for DataList {
     fn validate(&'a self, value: &'a Value) -> Result<'a> {
         if let serde_yaml::Value::Sequence(items) = value {
-            for item in items.iter() {
-                self.inner.validate(item)?;
+            for (i, item) in items.iter().enumerate() {
+                self.inner.validate(item).prepend(format!("[{}]", i))?;
             }
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("list", value))
+            Err(YamlValidationError::WrongType("list", value).into())
         }
     }
 }
@@ -124,14 +121,14 @@ impl<'a> YamlValidator<'a> for DataObject {
         if let Value::Mapping(ref obj) = value {
             for prop in self.fields.iter() {
                 if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
-                    prop.datatype.validate(field)?
+                    prop.datatype.validate(field).prepend(format!(".{}", prop.name))?
                 } else {
-                    return Err(YamlValidationError::MissingField(&prop.name));
+                    return Err(YamlValidationError::MissingField(&prop.name).into());
                 }
             }
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("object", value))
+            Err(YamlValidationError::WrongType("object", value).into())
         }
     }
 }
@@ -194,14 +191,14 @@ impl<'a> YamlValidator<'a> for YamlSchema {
         if let serde_yaml::Value::Mapping(map) = value {
             for prop in self.schema.iter() {
                 if let Some(field) = map.get(&serde_yaml::to_value(&prop.name).unwrap()) {
-                    prop.datatype.validate(field)?
+                    prop.datatype.validate(field).prepend(prop.name.clone())?
                 } else {
                     return Ok(());
                 }
             }
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("resource definition", value))
+            Err(YamlValidationError::WrongType("resource definition", value).into())
         }
     }
 }

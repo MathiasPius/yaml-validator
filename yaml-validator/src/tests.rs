@@ -75,7 +75,7 @@ fn test_missing_fields_in_schema() {
     let err = schema
         .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA)
         .expect_err("this should fail");
-    assert_eq!(format!("{}", err), "missing field, `name` not found");
+    assert_eq!(format!("{}", err), "schema[0]: missing field, `name` not found");
 }
 
 const WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA: &'static str = r#"---
@@ -92,7 +92,7 @@ fn test_wrong_type_for_field_in_schema() {
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
-        "wrong type, expected `string` got `Number(PosInt(200))`"
+        "schema[0].name: wrong type, expected `string` got `Number(PosInt(200))`"
     );
 }
 
@@ -119,7 +119,7 @@ fn test_string_limits() {
                 .validate_str(&STRING_LIMIT_TOO_LONG)
                 .expect_err("this should fail")
         ),
-        "string validation error: string too long, max is 20, but string is 29"
+        "somestring: string validation error: string too long, max is 20, but string is 29"
     );
 
     assert_eq!(
@@ -129,7 +129,7 @@ fn test_string_limits() {
                 .validate_str(&STRING_LIMIT_TOO_SHORT)
                 .expect_err("this should fail")
         ),
-        "string validation error: string too short, min is 10, but string is 5"
+        "somestring: string validation error: string too short, min is 10, but string is 5"
     );
 
     assert!(schema.validate_str(STRING_LIMIT_JUST_RIGHT).is_ok());
@@ -164,6 +164,6 @@ fn test_dictionary_validation() {
     assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES).is_ok());
     assert_eq!(
         format!("{}", schema.validate_str(&DICTIONARY_WITH_WRONG_TYPES).expect_err("this should fail")),
-        "dictionary validation error: key type error: `wrong type, expected `number` got `String(\"world\")``"
+        "dict.hello: wrong type, expected `number` got `String(\"world\")`"
     );
 }
