@@ -1,5 +1,5 @@
-use super::{YamlSchema, YamlValidator};
-use serde_yaml::Value;
+use super::YamlSchema;
+
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
   - name: somestring
@@ -29,7 +29,7 @@ schema:
 
 #[test]
 fn deserialize_many_types() {
-    let _rd= YamlSchema::from_str(DIFFERENT_TYPES).unwrap();
+    let _rd = YamlSchema::from_str(DIFFERENT_TYPES);
 }
 
 const YAML_SCHEMA: &'static str = r#"---
@@ -60,10 +60,9 @@ schema:
 
 #[test]
 fn validate_yaml_schema() {
-    let schema= YamlSchema::from_str(YAML_SCHEMA);
-    let yaml: Value = serde_yaml::from_str(YAML_SCHEMA).unwrap();
+    let schema = YamlSchema::from_str(YAML_SCHEMA);
 
-    assert!(schema.validate(&yaml).is_ok());
+    assert!(schema.validate_str(&YAML_SCHEMA).is_ok());
 }
 
 const MISSING_NAME_FIELD_IN_SCHEMA: &'static str = r#"---
@@ -73,10 +72,11 @@ schema:
 
 #[test]
 fn test_missing_fields_in_schema() {
-    let schema= YamlSchema::from_str(YAML_SCHEMA);
-    let yaml: Value = serde_yaml::from_str(MISSING_NAME_FIELD_IN_SCHEMA).unwrap();
+    let schema = YamlSchema::from_str(YAML_SCHEMA);
 
-    let err = schema.validate(&yaml).expect_err("this should fail");
+    let err = schema
+        .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA)
+        .expect_err("this should fail");
     assert_eq!(format!("{}", err), "missing field, `name` not found");
 }
 
@@ -87,11 +87,11 @@ schema:
 
 #[test]
 fn test_wrong_type_for_field_in_schema() {
-    let schema= YamlSchema::from_str(YAML_SCHEMA);
-    let yaml: Value =
-        serde_yaml::from_str(WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA).unwrap();
+    let schema = YamlSchema::from_str(YAML_SCHEMA);
 
-    let err = schema.validate(&yaml).expect_err("this should fail");
+    let err = schema
+        .validate_str(&WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA)
+        .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
         "wrong type, expected `string` got `Number(PosInt(200))`"
@@ -112,22 +112,29 @@ const STRING_LIMIT_JUST_RIGHT: &'static str = "somestring: hello world";
 
 #[test]
 fn test_string_limits() {
-    let schema= YamlSchema::from_str(STRING_LIMIT_SCHEMA).unwrap();
-    let short: Value = serde_yaml::from_str(STRING_LIMIT_TOO_SHORT).unwrap();
-    let long: Value = serde_yaml::from_str(STRING_LIMIT_TOO_LONG).unwrap();
-    let just_right: Value = serde_yaml::from_str(STRING_LIMIT_JUST_RIGHT).unwrap();
+    let schema = YamlSchema::from_str(STRING_LIMIT_SCHEMA);
 
     assert_eq!(
-        format!("{}", schema.validate(&long).expect_err("this should fail")),
+        format!(
+            "{}",
+            schema
+                .validate_str(&STRING_LIMIT_TOO_LONG)
+                .expect_err("this should fail")
+        ),
         "string validation error: string too long, max is 20, but string is 29"
     );
 
     assert_eq!(
-        format!("{}", schema.validate(&short).expect_err("this should fail")),
+        format!(
+            "{}",
+            schema
+                .validate_str(&STRING_LIMIT_TOO_SHORT)
+                .expect_err("this should fail")
+        ),
         "string validation error: string too short, min is 10, but string is 5"
     );
 
-    assert!(schema.validate(&just_right).is_ok());
+    assert!(schema.validate_str(STRING_LIMIT_JUST_RIGHT).is_ok());
 }
 
 const DICTIONARY_WITH_SET_TYPES_SCHEMA: &'static str = r#"---
@@ -137,17 +144,18 @@ schema:
     key:
       type: string
     value:
-      number
+      type: number
 "#;
 
-const DICTIONARY_WITH_WRONG_TYPES: &'static str = r#"---
+const DICTIONARY_WITH_CORRECT_TYPES: &'static str = r#"---
 dict:
   hello: 10
   world: 20
 "#;
 
 #[test]
-
 fn test_dictionary_validation() {
-  let schema = YamlSchema::from_str(STRING_LIMIT_SCHEMA);
+    let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA);
+
+    assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES).is_ok());
 }
