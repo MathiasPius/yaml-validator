@@ -25,7 +25,7 @@ ARGS:
 ```
 
 # Examples
-All the example yaml files and schemas below can be found in the [examples](examples/) directory.
+All the example yaml files and schemas below can be found in the [yaml-validator-cli/examples](yaml-validator-cli/examples/) directory.
 ## Validating a single YAML file against a single schema
 You can use the command line tool to test a single yaml file against a single schema, by first defining a schema file and a yaml file to test it against:
 
