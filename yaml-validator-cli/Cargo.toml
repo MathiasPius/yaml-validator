@@ -7,10 +7,9 @@ description = "A command-line interface to the yaml-validator library"
 repository = "https://github.com/MathiasPius/yaml-validator"
 readme = "../README.md"
 license = "MIT"
-maintenance = { status = "actively-developed" }
 keywords = ["YAML", "validation", "schema"]
 
 [dependencies]
-yaml-validator = { "path" = "../yaml-validator", version = "0.0.1" }
+yaml-validator = { "path" = "../yaml-validator", version = "0.0.2" }
 structopt = "0.3.8"
 serde_yaml = "0.8.11"
