@@ -11,6 +11,6 @@ maintenance = { status = "actively-developed" }
 keywords = ["YAML", "validation", "schema"]
 
 [dependencies]
-yaml-validator = { "path" = "../yaml-validator" }
+yaml-validator = { "path" = "../yaml-validator", version = "0.0.1" }
 structopt = "0.3.8"
 serde_yaml = "0.8.11"
