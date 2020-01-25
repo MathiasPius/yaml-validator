@@ -1,4 +1,4 @@
-use super::YamlSchema;
+use super::{YamlSchema, YamlContext};
 
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
@@ -77,7 +77,7 @@ fn test_missing_fields_in_schema() {
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
-        "schema[0]: missing field, `name` not found"
+        "$.schema[0]: missing field, `name` not found"
     );
 }
 
@@ -95,7 +95,7 @@ fn test_wrong_type_for_field_in_schema() {
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
-        "schema[0].name: wrong type, expected `string` got `Number(PosInt(200))`"
+        "$.schema[0].name: wrong type, expected `string` got `Number(PosInt(200))`"
     );
 }
 
@@ -122,7 +122,7 @@ fn test_string_limits() {
                 .validate_str(&STRING_LIMIT_TOO_LONG, None)
                 .expect_err("this should fail")
         ),
-        "somestring: string validation error: string too long, max is 20, but string is 29"
+        "$.somestring: string validation error: string too long, max is 20, but string is 29"
     );
 
     assert_eq!(
@@ -132,7 +132,7 @@ fn test_string_limits() {
                 .validate_str(&STRING_LIMIT_TOO_SHORT, None)
                 .expect_err("this should fail")
         ),
-        "somestring: string validation error: string too short, min is 10, but string is 5"
+        "$.somestring: string validation error: string too short, min is 10, but string is 5"
     );
 
     assert!(schema.validate_str(STRING_LIMIT_JUST_RIGHT, None).is_ok());
@@ -172,6 +172,36 @@ fn test_dictionary_validation() {
                 .validate_str(&DICTIONARY_WITH_WRONG_TYPES, None)
                 .expect_err("this should fail")
         ),
-        "dict.hello: wrong type, expected `number` got `String(\"world\")`"
+        "$.dict.hello: wrong type, expected `number` got `String(\"world\")`"
     );
+}
+
+
+const SCHEMA_WITH_URI: &'static str = r#"---
+uri: myuri/v1
+schema:
+  - name: testproperty
+    type: number
+"#;
+
+const SCHEMA_WITH_REFERENCE: &'static str = r#"---
+schema:
+  - name: propref
+    type: reference
+    uri: myuri/v1
+"#;
+
+const YAML_FILE_WITH_REFERENCE: &'static str = r#"---
+propref:
+  testproperty: 10
+"#;
+
+#[test]
+fn test_schema_reference() {
+    let context = YamlContext::from_schemas(vec![
+        YamlSchema::from_str(SCHEMA_WITH_URI),
+    ]);
+
+    let schema = YamlSchema::from_str(SCHEMA_WITH_REFERENCE);
+    schema.validate_str(&YAML_FILE_WITH_REFERENCE, Some(&context)).unwrap();
 }

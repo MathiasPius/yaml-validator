@@ -70,16 +70,16 @@ impl<'a> YamlValidator<'a> for DataString {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataReference {
-    pub reference: String
+    pub uri: String
 }
 
 impl<'a> YamlValidator<'a> for DataReference {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let Some(ctx) = context {
-            if let Some(schema) = ctx.lookup(&self.reference) {
-                return schema.validate(value, context);
+            if let Some(schema) = ctx.lookup(&self.uri) {
+                return DataObject::validate(&schema.schema, value, context)
             }
-            return Err(YamlValidationError::MissingSchema(&self.reference).into());
+            return Err(YamlValidationError::MissingSchema(&self.uri).into());
         }
         Err(YamlValidationError::MissingContext.into())
     }
@@ -141,10 +141,10 @@ struct DataObject {
     pub fields: Vec<Property>,
 }
 
-impl<'a> YamlValidator<'a> for DataObject {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+impl DataObject {
+    pub fn validate<'a>(properties: &'a Vec<Property>, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let Value::Mapping(ref obj) = value {
-            for prop in self.fields.iter() {
+            for prop in properties.iter() {
                 if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
                     prop.datatype
                         .validate(field, context)
@@ -157,6 +157,12 @@ impl<'a> YamlValidator<'a> for DataObject {
         } else {
             Err(YamlValidationError::WrongType("object", value).into())
         }
+    }
+}
+
+impl<'a> YamlValidator<'a> for DataObject {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+        DataObject::validate(&self.fields, value, context)
     }
 }
 
@@ -173,6 +179,8 @@ enum PropertyType {
     DataDictionary(DataDictionary),
     #[serde(rename = "object")]
     DataObject(DataObject),
+    #[serde(rename = "reference")]
+    DataReference(DataReference)
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
@@ -183,6 +191,7 @@ impl<'a> YamlValidator<'a> for PropertyType {
             PropertyType::DataList(p) => p.validate(value, context),
             PropertyType::DataDictionary(p) => p.validate(value, context),
             PropertyType::DataObject(p) => p.validate(value, context),
+            PropertyType::DataReference(p) => p.validate(value, context),
         }
     }
 }
@@ -223,20 +232,7 @@ impl YamlSchema {
 
 impl<'a> YamlValidator<'a> for YamlSchema {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
-        if let serde_yaml::Value::Mapping(map) = value {
-            for prop in self.schema.iter() {
-                if let Some(field) = map.get(&serde_yaml::to_value(&prop.name).unwrap()) {
-                    prop.datatype
-                        .validate(field, context)
-                        .prepend(prop.name.clone())?
-                } else {
-                    return Ok(());
-                }
-            }
-            Ok(())
-        } else {
-            Err(YamlValidationError::WrongType("resource definition", value).into())
-        }
+        DataObject::validate(&self.schema, value, context).prepend("$".into())
     }
 }
 
@@ -246,6 +242,22 @@ pub struct YamlContext {
 }
 
 impl YamlContext {
+    pub fn new() -> Self {
+        YamlContext {
+            schemas: vec!()
+        }
+    }
+
+    pub fn from_schemas(schemas: Vec<YamlSchema>) -> Self {
+        YamlContext {
+            schemas: schemas.into()
+        }
+    }
+
+    pub fn add_schema(&mut self, schema: YamlSchema) {
+        self.schemas.push(schema);
+    }
+
     pub fn lookup(&self, uri: &str) -> Option<&YamlSchema> {
         for schema in self.schemas.iter() {
             if let Some(ref schema_uri) = schema.uri {
