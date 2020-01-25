@@ -79,11 +79,14 @@ impl<'a> YamlValidator<'a> for DataDictionary {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
                 if let Some(ref key) = self.key {
-                    key.validate(item.0).map_err(|e| DictionaryValidationError::KeyValidationError(Box::new(e)))?;
+                    key.validate(item.0)
+                        .map_err(|e| DictionaryValidationError::KeyValidationError(Box::new(e)))?;
                 }
 
                 if let Some(ref value) = self.value {
-                    value.validate(item.1).map_err(|e| DictionaryValidationError::ValueValidationError(Box::new(e)))?;
+                    value.validate(item.1).map_err(|e| {
+                        DictionaryValidationError::ValueValidationError(Box::new(e))
+                    })?;
                 }
             }
             Ok(())
