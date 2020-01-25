@@ -8,6 +8,7 @@ repository = "https://github.com/MathiasPius/yaml-validator"
 readme = "README.md"
 license-file = "LICENSE"
 maintenance = { status = "actively-developed" }
+keywords = ["YAML", "validation", "schema"]
 
 [dependencies]
 yaml-validator = { "path" = "../yaml-validator" }
