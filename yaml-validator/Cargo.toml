@@ -6,7 +6,7 @@ edition = "2018"
 description = "A library for validating YAML against YAML-defined schemas"
 repository = "https://github.com/MathiasPius/yaml-validator"
 readme = "README.md"
-license-file = "LICENSE"
+license = "MIT"
 maintenance = { status = "actively-developed" }
 keywords = ["YAML", "validation", "schema"]
 
