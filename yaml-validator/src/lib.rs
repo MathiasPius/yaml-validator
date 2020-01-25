@@ -270,4 +270,8 @@ impl YamlContext {
         }
         return None;
     }
+
+    pub fn schemas(&self) -> &Vec<YamlSchema> {
+        &self.schemas
+    }
 }
