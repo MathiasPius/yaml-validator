@@ -23,3 +23,30 @@ OPTIONS:
 ARGS:
     <files>...    Files to validate against the selected schemas.
 ```
+
+# Examples
+## Validating a single YAML file against a single schema
+You can use the command line tool to test a single yaml file against a single schema, by first defining a schema file and a yaml file to test it against:
+
+Schema: examples/person.yaml
+```yaml
+---
+schema:
+  - name: firstname
+    type: string
+  - name: age
+    type: number
+```
+
+YAML-file: examples/johnsmith.yaml
+```yaml
+---
+firstname: John
+age: 58
+```
+Run the command with the above schema and user file:
+```bash
+$ yaml-validator-cli --schema examples/person.yaml -- examples/johnsmith.yaml
+valid: "examples/johnsmith.yaml"
+All files validated successfully!
+```
