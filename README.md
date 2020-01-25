@@ -39,7 +39,7 @@ schema:
     type: number
 ```
 
-*YAML-file: johnsmith.yaml*
+YAML-file: [johnsmith.yaml](yaml-validator-cli/examples/johnsmith.yaml)
 ```yaml
 ---
 firstname: John
@@ -55,14 +55,14 @@ All files validated successfully!
 ## Validating multiple files against a single schema
 For this example, we'll re-use the files from before, but add some more people
 
-*YAML-file: janedoe.yaml*
+YAML-file: [janedoe.yaml](yaml-validator-cli/examples/janedoe.yaml)
 ```yaml
 ---
 firstname: Jane
 age: 33
 ```
 
-*YAML-file: malfoy.yaml*
+YAML-file: [malfoy.yaml](yaml-validator-cli/examples/malfoy.yaml)
 ```yaml
 ---
 firstname: Malfoy
@@ -70,9 +70,90 @@ age: Thirty-five
 ```
 Running the same command, but with the other people appended:
 ```bash
-$ yaml-validator-cli --schema person.yaml -- johnsmith.yaml janedoe.yaml malfoy.yaml
+$ yaml-validator-cli --schemas person.yaml \
+    johnsmith.yaml \
+    janedoe.yaml \
+    malfoy.yaml
 valid: "johnsmith.yaml"
 valid: "janedoe.yaml"
 failed: "malfoy.yaml": $.age: wrong type, expected `number` got `String("Thirty-five")`
 ```
-We see that malfoy.yaml does not conform to the provided schema, and our program has exited with an error.
+We see that *malfoy.yaml* does not conform to the provided schema, and our program has exited with an error.
+
+## Validating against a context containing interdependent schemas
+In this example we'll make use of the `reference` data type, which means we'll need to provide schemas we'll be referring to with a `uri` we can locate them by.
+
+The [person.yaml](yaml-validator-cli/examples/person.yaml) file from the first examples is already has a uri defined, it was just ommitted from the examples for simplicity's sake. You can inspect the file yourself:
+```yaml
+---
+uri: examples/0.0.3/person
+schema:
+  - name: firstname
+    type: string
+  - name: age
+    type: number
+```
+We can therefore go on to define our other schema, which will contain a list of *persons*:
+
+Schema: [listofpeople.yaml](yaml-validator-cli/examples/listofpeople.yaml)
+```yaml
+---
+schema:
+  - name: people
+    type: list
+    inner:
+      type: reference
+      uri: examples/0.0.3/person
+```
+
+Now we have to define a test file we can validate using the above schema:
+
+YAML-file: [contacts.yaml](yaml-validator-cli/examples/contacts.yaml)
+```yaml
+---
+people:
+  - firstname: John
+    age: 58
+  - firstname: Jane
+    age: 33
+  - firstname: Malfoy
+    age: Thirty-five
+```
+We can validate our contacts list, by specifying both the schemas necessary to validate it in order:
+
+```bash
+$ yaml-validator-cli \
+    --schemas person.yaml \
+    --schemas listofpeople.yaml \
+    contacts.yaml
+failed: "contacts.yaml": $.people[2].age: wrong type, expected `number` got `String("Thirty-five")`
+```
+once again *Malfoy* violates our schema with his stringified age, as we can tell from the error message telling us that the 3rd (because of zero-indexed arrays) entry in our *$.people* value is malformed.
+
+**Note:** This "just works", because we supplied our "listofpeople.yaml" file last, which means it will be used as the schema to validate against by default. If we had reversed the order of the schemas, or if we are not sure about the order the will be loaded in, we can give our `listofpeople.yaml` struct a uri too, and specify it on the command line to make it explicit which schema we want our `contacts.yaml` file to validate against:
+
+Schema: [listofpeople.yaml](yaml-validator-cli/examples/listofpeople.yaml)
+```yaml
+---
+schema:
+  - name: people
+    type: list
+    inner:
+      type: reference
+      uri: examples/0.0.3/person
+```
+Now in any order:
+```bash
+$ yaml-validator-cli \
+    --schemas listofpeople.yaml \
+    --schemas person.yaml \
+    --uri examples/0.0.3/listofpeople
+    contacts.yaml
+failed: "contacts.yaml": $.people[2].age: wrong type, expected `number` got `String("Thirty-five")`
+```
+We of course still get the *Malfoy* error, since we haven't fixed our contacts.yaml list, but if you remove the --uri argument from our command, you'll be met with a completely different error:
+
+```bash
+failed: "yaml-validator-cli/examples/contacts.yaml": $: missing field, `firstname` not found
+```
+The message claims there's a missing `firstname` field in our root document, because it thinks `contacts.yaml` is supposed to conform to the `person.yaml` schema.

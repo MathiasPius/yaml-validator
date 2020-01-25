@@ -1,0 +1,8 @@
+---
+uri: examples/0.0.3/listofpeople
+schema:
+  - name: people
+    type: list
+    inner:
+      type: reference
+      uri: examples/0.0.3/person
