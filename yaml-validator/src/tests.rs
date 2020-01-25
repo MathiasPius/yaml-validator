@@ -54,15 +54,13 @@ schema:
                 type: dictionary
                 key:
                   type: string
-                value:
-                  type: string
 "#;
 
 #[test]
 fn validate_yaml_schema() {
     let schema = YamlSchema::from_str(YAML_SCHEMA);
 
-    assert!(schema.validate_str(&YAML_SCHEMA).is_ok());
+    schema.validate_str(&YAML_SCHEMA).unwrap();
 }
 
 const MISSING_NAME_FIELD_IN_SCHEMA: &'static str = r#"---
@@ -153,9 +151,19 @@ dict:
   world: 20
 "#;
 
+const DICTIONARY_WITH_WRONG_TYPES: &'static str = r#"---
+dict:
+  hello: world
+  world: hello
+"#;
+
 #[test]
 fn test_dictionary_validation() {
     let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA);
 
     assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES).is_ok());
+    assert_eq!(
+        format!("{}", schema.validate_str(&DICTIONARY_WITH_WRONG_TYPES).expect_err("this should fail")),
+        "dictionary validation error: key type error: `wrong type, expected `number` got `String(\"world\")``"
+    );
 }

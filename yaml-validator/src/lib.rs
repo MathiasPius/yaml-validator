@@ -70,13 +70,22 @@ impl<'a> YamlValidator<'a> for DataString {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataDictionary {
-    pub key: Box<PropertyType>,
-    pub value: Box<PropertyType>,
+    pub key: Option<Box<PropertyType>>,
+    pub value: Option<Box<PropertyType>>,
 }
 
 impl<'a> YamlValidator<'a> for DataDictionary {
     fn validate(&'a self, value: &'a Value) -> Result<'a> {
-        if let Value::Mapping(_) = value {
+        if let Value::Mapping(dict) = value {
+            for item in dict.iter() {
+                if let Some(ref key) = self.key {
+                    key.validate(item.0).map_err(|e| DictionaryValidationError::KeyValidationError(Box::new(e)))?;
+                }
+
+                if let Some(ref value) = self.value {
+                    value.validate(item.1).map_err(|e| DictionaryValidationError::ValueValidationError(Box::new(e)))?;
+                }
+            }
             Ok(())
         } else {
             Err(YamlValidationError::WrongType("dictionary", value))

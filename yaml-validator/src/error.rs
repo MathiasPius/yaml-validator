@@ -11,7 +11,7 @@ pub enum YamlValidationError<'a> {
     #[error("list validation error: {0}")]
     ListValidationError(#[from] ListValidationError),
     #[error("dictionary validation error: {0}")]
-    DictionaryValidationError(#[from] DictionaryValidationError),
+    DictionaryValidationError(DictionaryValidationError<'a>),
     #[error("object validation error: {0}")]
     ObjectValidationError(#[from] ObjectValidationError),
     #[error("wrong type, expected `{0}` got `{1:?}`")]
@@ -35,7 +35,18 @@ pub enum StringValidationError {
 pub enum ListValidationError {}
 
 #[derive(Error, Debug)]
-pub enum DictionaryValidationError {}
+pub enum DictionaryValidationError<'a> {
+    #[error("key type error: `{0}`")]
+    KeyValidationError(Box<YamlValidationError<'a>>),
+    #[error("key type error: `{0}`")]
+    ValueValidationError(Box<YamlValidationError<'a>>),
+}
+
+impl<'a> From<DictionaryValidationError<'a>> for YamlValidationError<'a> {
+    fn from(e: DictionaryValidationError<'a>) -> Self {
+        YamlValidationError::DictionaryValidationError(e)
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum ObjectValidationError {}
