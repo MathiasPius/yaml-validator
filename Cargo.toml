@@ -1,0 +1,11 @@
+[workspace]
+
+members = [
+    "yaml-validator",
+    "yaml-validator-cli",
+]
+
+default-members = [
+    "yaml-validator",
+    "yaml-validator-cli",
+]

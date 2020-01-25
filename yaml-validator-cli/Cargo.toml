@@ -1,0 +1,8 @@
+[package]
+name = "yaml-validator-cli"
+version = "0.0.1"
+authors = ["Mathias Pius <contact@pius.io>"]
+edition = "2018"
+
+[dependencies]
+yaml-validator = { "path" = "../yaml-validator" }

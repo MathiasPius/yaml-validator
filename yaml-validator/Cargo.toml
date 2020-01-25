@@ -1,0 +1,10 @@
+[package]
+name = "yaml-validator"
+version = "0.0.1"
+authors = ["Mathias Pius <contact@pius.io>"]
+edition = "2018"
+
+[dependencies]
+serde = {version = "1.0.104", features = ["derive"] }
+serde_yaml = "0.8.11"
+thiserror = "1.0.9"
