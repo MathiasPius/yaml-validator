@@ -69,7 +69,7 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
     for yamlfile in opt.files.iter() {
         let yaml = read_file(&yamlfile)?;
         schema
-            .validate_str(&yaml, None)
+            .validate_str(&yaml, Some(&context))
             .map_err(|e| Error::ValidationError(format!("{:?}: {}", yamlfile, e)))?;
         println!("valid: {:?}", &yamlfile);
     }
