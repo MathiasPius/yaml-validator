@@ -8,7 +8,7 @@ pub struct StatefulResult<'a> {
 }
 
 impl<'a> std::fmt::Display for StatefulResult<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_> ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for segment in self.path.iter().rev() {
             write!(f, "{}", segment)?;
         }
@@ -33,7 +33,7 @@ impl<'a> Into<StatefulResult<'a>> for YamlValidationError<'a> {
     fn into(self) -> StatefulResult<'a> {
         StatefulResult {
             error: self,
-            path: vec!()
+            path: vec![],
         }
     }
 }
@@ -42,7 +42,7 @@ impl<'a> Into<StatefulResult<'a>> for StringValidationError {
     fn into(self) -> StatefulResult<'a> {
         StatefulResult {
             error: self.into(),
-            path: vec!()
+            path: vec![],
         }
     }
 }
@@ -51,11 +51,10 @@ impl<'a> Into<StatefulResult<'a>> for DictionaryValidationError<'a> {
     fn into(self) -> StatefulResult<'a> {
         StatefulResult {
             error: self.into(),
-            path: vec!()
+            path: vec![],
         }
     }
 }
-
 
 #[derive(Error, Debug)]
 pub enum YamlValidationError<'a> {

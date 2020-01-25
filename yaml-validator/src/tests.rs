@@ -75,7 +75,10 @@ fn test_missing_fields_in_schema() {
     let err = schema
         .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA)
         .expect_err("this should fail");
-    assert_eq!(format!("{}", err), "schema[0]: missing field, `name` not found");
+    assert_eq!(
+        format!("{}", err),
+        "schema[0]: missing field, `name` not found"
+    );
 }
 
 const WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA: &'static str = r#"---
@@ -163,7 +166,12 @@ fn test_dictionary_validation() {
 
     assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES).is_ok());
     assert_eq!(
-        format!("{}", schema.validate_str(&DICTIONARY_WITH_WRONG_TYPES).expect_err("this should fail")),
+        format!(
+            "{}",
+            schema
+                .validate_str(&DICTIONARY_WITH_WRONG_TYPES)
+                .expect_err("this should fail")
+        ),
         "dict.hello: wrong type, expected `number` got `String(\"world\")`"
     );
 }

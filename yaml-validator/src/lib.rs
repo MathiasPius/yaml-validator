@@ -79,11 +79,17 @@ impl<'a> YamlValidator<'a> for DataDictionary {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
                 if let Some(ref key) = self.key {
-                    key.validate(item.0).prepend(format!(".{}", item.0.as_str().unwrap_or("<non-string field>")))?;
+                    key.validate(item.0).prepend(format!(
+                        ".{}",
+                        item.0.as_str().unwrap_or("<non-string field>")
+                    ))?;
                 }
 
                 if let Some(ref value) = self.value {
-                    value.validate(item.1).prepend(format!(".{}", item.0.as_str().unwrap_or("<non-string field>")))?;
+                    value.validate(item.1).prepend(format!(
+                        ".{}",
+                        item.0.as_str().unwrap_or("<non-string field>")
+                    ))?;
                 }
             }
             Ok(())
@@ -121,7 +127,9 @@ impl<'a> YamlValidator<'a> for DataObject {
         if let Value::Mapping(ref obj) = value {
             for prop in self.fields.iter() {
                 if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
-                    prop.datatype.validate(field).prepend(format!(".{}", prop.name))?
+                    prop.datatype
+                        .validate(field)
+                        .prepend(format!(".{}", prop.name))?
                 } else {
                     return Err(YamlValidationError::MissingField(&prop.name).into());
                 }
