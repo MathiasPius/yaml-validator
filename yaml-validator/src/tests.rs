@@ -60,7 +60,7 @@ schema:
 fn validate_yaml_schema() {
     let schema = YamlSchema::from_str(YAML_SCHEMA);
 
-    schema.validate_str(&YAML_SCHEMA).unwrap();
+    schema.validate_str(&YAML_SCHEMA, None).unwrap();
 }
 
 const MISSING_NAME_FIELD_IN_SCHEMA: &'static str = r#"---
@@ -73,7 +73,7 @@ fn test_missing_fields_in_schema() {
     let schema = YamlSchema::from_str(YAML_SCHEMA);
 
     let err = schema
-        .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA)
+        .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA, None)
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
@@ -91,7 +91,7 @@ fn test_wrong_type_for_field_in_schema() {
     let schema = YamlSchema::from_str(YAML_SCHEMA);
 
     let err = schema
-        .validate_str(&WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA)
+        .validate_str(&WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA, None)
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
@@ -119,7 +119,7 @@ fn test_string_limits() {
         format!(
             "{}",
             schema
-                .validate_str(&STRING_LIMIT_TOO_LONG)
+                .validate_str(&STRING_LIMIT_TOO_LONG, None)
                 .expect_err("this should fail")
         ),
         "somestring: string validation error: string too long, max is 20, but string is 29"
@@ -129,13 +129,13 @@ fn test_string_limits() {
         format!(
             "{}",
             schema
-                .validate_str(&STRING_LIMIT_TOO_SHORT)
+                .validate_str(&STRING_LIMIT_TOO_SHORT, None)
                 .expect_err("this should fail")
         ),
         "somestring: string validation error: string too short, min is 10, but string is 5"
     );
 
-    assert!(schema.validate_str(STRING_LIMIT_JUST_RIGHT).is_ok());
+    assert!(schema.validate_str(STRING_LIMIT_JUST_RIGHT, None).is_ok());
 }
 
 const DICTIONARY_WITH_SET_TYPES_SCHEMA: &'static str = r#"---
@@ -164,12 +164,12 @@ dict:
 fn test_dictionary_validation() {
     let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA);
 
-    assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES).is_ok());
+    assert!(schema.validate_str(&DICTIONARY_WITH_CORRECT_TYPES, None).is_ok());
     assert_eq!(
         format!(
             "{}",
             schema
-                .validate_str(&DICTIONARY_WITH_WRONG_TYPES)
+                .validate_str(&DICTIONARY_WITH_WRONG_TYPES, None)
                 .expect_err("this should fail")
         ),
         "dict.hello: wrong type, expected `number` got `String(\"world\")`"

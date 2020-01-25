@@ -27,7 +27,7 @@ fn main() {
 
         for yamlfile in opt.files.iter() {
             let yaml = read_file(&yamlfile).expect("failed to load yaml file");
-            match schema.validate_str(&yaml) {
+            match schema.validate_str(&yaml, None) {
                 Ok(()) => println!("{:?} valid!", &yamlfile),
                 Err(e) => println!("{:?} validation failed: {}", &yamlfile, e),
             }

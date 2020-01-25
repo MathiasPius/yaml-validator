@@ -8,7 +8,7 @@ pub mod error;
 use error::{Result, *};
 
 pub trait YamlValidator<'a> {
-    fn validate(&'a self, value: &'a Value) -> Result<'a>;
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a>;
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -29,7 +29,7 @@ struct DataNumber {
 }
 
 impl<'a> YamlValidator<'a> for DataNumber {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> Result<'a> {
         if let Value::Number(_) = value {
             Ok(())
         } else {
@@ -47,7 +47,7 @@ struct DataString {
 }
 
 impl<'a> YamlValidator<'a> for DataString {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> Result<'a> {
         if let Value::String(inner) = value {
             if let Some(max_length) = self.max_length {
                 if inner.len() > max_length {
@@ -69,24 +69,41 @@ impl<'a> YamlValidator<'a> for DataString {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+struct DataReference {
+    pub reference: String
+}
+
+impl<'a> YamlValidator<'a> for DataReference {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+        if let Some(ctx) = context {
+            if let Some(schema) = ctx.lookup(&self.reference) {
+                return schema.validate(value, context);
+            }
+            return Err(YamlValidationError::MissingSchema(&self.reference).into());
+        }
+        Err(YamlValidationError::MissingContext.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataDictionary {
     pub key: Option<Box<PropertyType>>,
     pub value: Option<Box<PropertyType>>,
 }
 
 impl<'a> YamlValidator<'a> for DataDictionary {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
                 if let Some(ref key) = self.key {
-                    key.validate(item.0).prepend(format!(
+                    key.validate(item.0, context).prepend(format!(
                         ".{}",
                         item.0.as_str().unwrap_or("<non-string field>")
                     ))?;
                 }
 
                 if let Some(ref value) = self.value {
-                    value.validate(item.1).prepend(format!(
+                    value.validate(item.1, context).prepend(format!(
                         ".{}",
                         item.0.as_str().unwrap_or("<non-string field>")
                     ))?;
@@ -105,10 +122,12 @@ struct DataList {
 }
 
 impl<'a> YamlValidator<'a> for DataList {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let serde_yaml::Value::Sequence(items) = value {
             for (i, item) in items.iter().enumerate() {
-                self.inner.validate(item).prepend(format!("[{}]", i))?;
+                self.inner
+                    .validate(item, context)
+                    .prepend(format!("[{}]", i))?;
             }
             Ok(())
         } else {
@@ -123,12 +142,12 @@ struct DataObject {
 }
 
 impl<'a> YamlValidator<'a> for DataObject {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let Value::Mapping(ref obj) = value {
             for prop in self.fields.iter() {
                 if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
                     prop.datatype
-                        .validate(field)
+                        .validate(field, context)
                         .prepend(format!(".{}", prop.name))?
                 } else {
                     return Err(YamlValidationError::MissingField(&prop.name).into());
@@ -157,13 +176,13 @@ enum PropertyType {
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         match self {
-            PropertyType::DataNumber(p) => p.validate(value),
-            PropertyType::DataString(p) => p.validate(value),
-            PropertyType::DataList(p) => p.validate(value),
-            PropertyType::DataDictionary(p) => p.validate(value),
-            PropertyType::DataObject(p) => p.validate(value),
+            PropertyType::DataNumber(p) => p.validate(value, context),
+            PropertyType::DataString(p) => p.validate(value, context),
+            PropertyType::DataList(p) => p.validate(value, context),
+            PropertyType::DataDictionary(p) => p.validate(value, context),
+            PropertyType::DataObject(p) => p.validate(value, context),
         }
     }
 }
@@ -178,6 +197,7 @@ struct Property {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct YamlSchema {
+    uri: Option<String>,
     schema: Vec<Property>,
 }
 
@@ -186,8 +206,15 @@ impl YamlSchema {
         serde_yaml::from_str(schema).expect("failed to parse string as yaml")
     }
 
-    pub fn validate_str(&self, yaml: &str) -> std::result::Result<(), String> {
-        match self.validate(&serde_yaml::from_str(yaml).expect("failed to parse string as yaml")) {
+    pub fn validate_str(
+        &self,
+        yaml: &str,
+        context: Option<&YamlContext>,
+    ) -> std::result::Result<(), String> {
+        match self.validate(
+            &serde_yaml::from_str(yaml).expect("failed to parse string as yaml"),
+            context,
+        ) {
             Ok(()) => Ok(()),
             Err(e) => Err(format!("{}", e)),
         }
@@ -195,11 +222,13 @@ impl YamlSchema {
 }
 
 impl<'a> YamlValidator<'a> for YamlSchema {
-    fn validate(&'a self, value: &'a Value) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let serde_yaml::Value::Mapping(map) = value {
             for prop in self.schema.iter() {
                 if let Some(field) = map.get(&serde_yaml::to_value(&prop.name).unwrap()) {
-                    prop.datatype.validate(field).prepend(prop.name.clone())?
+                    prop.datatype
+                        .validate(field, context)
+                        .prepend(prop.name.clone())?
                 } else {
                     return Ok(());
                 }
@@ -208,5 +237,23 @@ impl<'a> YamlValidator<'a> for YamlSchema {
         } else {
             Err(YamlValidationError::WrongType("resource definition", value).into())
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct YamlContext {
+    schemas: Vec<YamlSchema>,
+}
+
+impl YamlContext {
+    pub fn lookup(&self, uri: &str) -> Option<&YamlSchema> {
+        for schema in self.schemas.iter() {
+            if let Some(ref schema_uri) = schema.uri {
+                if schema_uri == uri {
+                    return Some(&schema);
+                }
+            }
+        }
+        return None
     }
 }

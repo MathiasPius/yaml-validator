@@ -72,6 +72,10 @@ pub enum YamlValidationError<'a> {
     WrongType(&'static str, &'a serde_yaml::Value),
     #[error("missing field, `{0}` not found")]
     MissingField(&'a str),
+    #[error("missing schema, `{0}` not found")]
+    MissingSchema(&'a str),
+    #[error("no context defined, but schema references other schema")]
+    MissingContext,
 }
 
 #[derive(Error, Debug)]
