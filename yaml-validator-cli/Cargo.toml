@@ -6,3 +6,5 @@ edition = "2018"
 
 [dependencies]
 yaml-validator = { "path" = "../yaml-validator" }
+structopt = "0.3.8"
+serde_yaml = "0.8.11"

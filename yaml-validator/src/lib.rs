@@ -7,7 +7,7 @@ mod tests;
 pub mod error;
 use error::{Result, *};
 
-trait YamlValidator<'a> {
+pub trait YamlValidator<'a> {
     fn validate(&'a self, value: &'a Value) -> Result<'a>;
 }
 
@@ -160,8 +160,21 @@ struct Property {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct YamlSchema {
-    pub schema: Vec<Property>,
+pub struct YamlSchema {
+    schema: Vec<Property>,
+}
+
+impl YamlSchema {
+    pub fn from_str(schema: &str) -> YamlSchema {
+        serde_yaml::from_str(schema).expect("failed to parse string as yaml")
+    }
+
+    pub fn validate_str(&self, yaml: &str) -> std::result::Result<(), String> {
+        match self.validate(&serde_yaml::from_str(yaml).expect("failed to parse string as yaml")) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(format!("{}", e)),
+        }
+    }
 }
 
 impl<'a> YamlValidator<'a> for YamlSchema {
