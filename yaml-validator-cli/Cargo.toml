@@ -3,6 +3,11 @@ name = "yaml-validator-cli"
 version = "0.0.1"
 authors = ["Mathias Pius <contact@pius.io>"]
 edition = "2018"
+description = "A command-line interface to the yaml-validator library"
+repository = "https://github.com/MathiasPius/yaml-validator"
+readme = "README.md"
+license-file = "LICENSE"
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 yaml-validator = { "path" = "../yaml-validator" }

@@ -3,6 +3,11 @@ name = "yaml-validator"
 version = "0.0.1"
 authors = ["Mathias Pius <contact@pius.io>"]
 edition = "2018"
+description = "A library for validating YAML against YAML-defined schemas"
+repository = "https://github.com/MathiasPius/yaml-validator"
+readme = "README.md"
+license-file = "LICENSE"
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 serde = {version = "1.0.104", features = ["derive"] }
