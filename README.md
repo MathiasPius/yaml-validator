@@ -85,7 +85,7 @@ Test the above yaml using [peopleiknow.yaml](yaml-validator-cli/examples/peoplei
 ```bash
 $ yaml-validator-cli \
     --schemas acquaintance.yaml \
-    --schemas phonebook.yaml 
+    --schemas phonebook.yaml \
     peopleiknow.yaml
 valid: "peopleiknow.yaml"
 All files validated successfully!
