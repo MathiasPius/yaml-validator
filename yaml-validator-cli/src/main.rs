@@ -18,7 +18,7 @@ struct Opt {
     #[structopt(
         parse(from_os_str),
         short,
-        long,
+        long = "schema",
         help = "Schemas to include in context to validate against. Schemas are added in order, but do not validate references to other schemas upon loading."
     )]
     schemas: Vec<PathBuf>,
@@ -57,12 +57,12 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
             if let Some(schema) = context.lookup(&uri) {
                 schema
             } else {
-                panic!("Schema referenced by uri `{}` not found in context", uri);
+                return Err(Error::ValidationError(format!("Schema referenced by uri `{}` not found in context", uri)));
             }
         } else if let Some(schema) = context.schemas().last() {
             schema
         } else {
-            panic!("No schemas supplied, see the --schema option for information");
+            return Err(Error::InputError("No schemas supplied, see the --schema option for information".into()));
         }
     };
 

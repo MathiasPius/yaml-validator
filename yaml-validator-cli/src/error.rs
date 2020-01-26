@@ -2,6 +2,7 @@ pub enum Error {
     FileError(String),
     ValidationError(String),
     YamlError(String),
+    InputError(String),
 }
 
 impl From<std::io::Error> for Error {
@@ -22,6 +23,7 @@ impl<'a> std::fmt::Display for Error {
             Error::FileError(e) => write!(f, "{}", e),
             Error::ValidationError(e) => write!(f, "{}", e),
             Error::YamlError(e) => write!(f, "{}", e),
+            Error::InputError(e) => write!(f, "{}", e),
         }
     }
 }
