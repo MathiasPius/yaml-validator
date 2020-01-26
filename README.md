@@ -1,6 +1,26 @@
 # yaml-validator
 YAML validation using schemas written in yaml
 
+## Supported datatypes
+The schema format supports a very limited number of types that map very closely to the YAML specification:
+
+ * `string`
+    * (optional) `min_length: number`
+    * (optional) `max_length: number`
+ * `number`
+ * `dictionary`
+    * (optional) `key`
+       * `type: <type>` should always be string really, will be removed.
+    * (optional) `value`
+       * `type: <type>` type of the value in the dictionary.
+ * `list`
+    * `type: <type>` required, but will be made optional.
+ * `object`
+    * `fields` struct with known fields (unlike a dictionary). List of:
+       * `name: string`
+       * `type: <type>`
+
+## Command-line help information
 ```
 yaml-validator-cli 0.0.2
     Command-line interface to the yaml-validator library.
