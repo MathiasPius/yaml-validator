@@ -4,10 +4,10 @@ use serde_yaml::Value;
 #[cfg(test)]
 mod tests;
 
-pub mod error;
+mod error;
 use error::{Result, *};
 
-pub trait YamlValidator<'a> {
+trait YamlValidator<'a> {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a>;
 }
 

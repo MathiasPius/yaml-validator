@@ -1,8 +1,8 @@
 use thiserror::Error;
 
-pub type Result<'a> = std::result::Result<(), StatefulResult<'a>>;
+pub(crate) type Result<'a> = std::result::Result<(), StatefulResult<'a>>;
 
-pub struct StatefulResult<'a> {
+pub(crate) struct StatefulResult<'a> {
     pub error: YamlValidationError<'a>,
     pub path: Vec<String>,
 }
