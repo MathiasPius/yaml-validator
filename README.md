@@ -5,13 +5,13 @@ YAML validation using schemas written in yaml
 The schema format supports a very limited number of types that map very closely to the YAML specification:
 
  * `string`
-    * (optional) `min_length: number`
-    * (optional) `max_length: number`
+    * `min_length: number` (optional)
+    * `max_length: number` (optional)
  * `number`
  * `dictionary`
-    * (optional) `key`
+    * `key` (optional)
        * `type: <type>` should always be string really, will be removed.
-    * (optional) `value`
+    * `value` (optional)
        * `type: <type>` type of the value in the dictionary.
  * `list`
     * `type: <type>` required, but will be made optional.
