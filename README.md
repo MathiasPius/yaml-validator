@@ -83,9 +83,9 @@ colleagues:
 ```
 Test the above yaml using [peopleiknow.yaml](yaml-validator-cli/examples/peopleiknow.yaml):
 ```bash
-$ yaml-validator-cli \
+$ yaml-validator-cli            \
     --schemas acquaintance.yaml \
-    --schemas phonebook.yaml \
+    --schemas phonebook.yaml    \
     peopleiknow.yaml
 valid: "peopleiknow.yaml"
 All files validated successfully!
@@ -161,9 +161,9 @@ age: Thirty-five
 ```
 Running the same command, but with the other people appended:
 ```bash
-$ yaml-validator-cli --schemas person.yaml \
-    johnsmith.yaml \
-    janedoe.yaml \
+$ yaml-validator-cli --schemas person.yaml  \
+    johnsmith.yaml                          \
+    janedoe.yaml                            \
     malfoy.yaml
 valid: "johnsmith.yaml"
 valid: "janedoe.yaml"
@@ -213,8 +213,8 @@ people:
 We can validate our contacts list, by specifying both the schemas necessary to validate it in order:
 
 ```bash
-$ yaml-validator-cli \
-    --schemas person.yaml \
+$ yaml-validator-cli            \
+    --schemas person.yaml       \
     --schemas listofpeople.yaml \
     contacts.yaml
 failed: "contacts.yaml": $.people[2].age: wrong type, expected `number` got `String("Thirty-five")`
@@ -236,10 +236,10 @@ schema:
 ```
 Now in any order:
 ```bash
-$ yaml-validator-cli \
-    --schemas listofpeople.yaml \
-    --schemas person.yaml \
-    --uri examples/0.0.3/listofpeople
+$ yaml-validator-cli                    \
+    --schemas listofpeople.yaml         \
+    --schemas person.yaml               \
+    --uri examples/0.0.3/listofpeople   \
     contacts.yaml
 failed: "contacts.yaml": $.people[2].age: wrong type, expected `number` got `String("Thirty-five")`
 ```
