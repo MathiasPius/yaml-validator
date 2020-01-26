@@ -3,8 +3,34 @@ Command-line interface for validating YAML files using schemas written in yaml.
 
 Quick Links:
 * [Supported Datatypes](#supported-datatypes)
-* [Command Line Arguments](#command-line-help-information)
 * [Examples](#examples)
+
+<details><summary>Command-line help information</summary>
+<p>
+
+```
+yaml-validator-cli 0.0.2
+    Command-line interface to the yaml-validator library.
+    Use it to validate YAML files against a context of any number of cross-referencing schema files.
+    The schema format is proprietary, and does not offer compatibility with any other known YAML tools
+
+USAGE:
+    yaml-validator-cli [OPTIONS] [--] [files]...
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -s, --schemas <schemas>...    Schemas to include in context to validate against. Schemas are added in order, but do
+                                  not validate references to other schemas upon loading.
+    -u, --uri <uri>               URI of the schema to validate the files against. If not supplied, the last schema
+                                  added will be used for validation.
+
+ARGS:
+    <files>...    Files to validate against the selected schemas.
+```
+</p></details>
 
 ## Supported datatypes
 The schema format supports a very limited number of types that map very closely to the YAML specification:
@@ -27,9 +53,12 @@ The schema format supports a very limited number of types that map very closely 
  * `reference`
     * `uri: string` uri of the schema this property references
 
-Here's an example schema file containing to interdependent schemas using a bit of all of the above types:
+Here's an example schema file containing two interdependent schemas using a bit of all of the above types:
 
 Source: [acquaintance.yaml](yaml-validator-cli/examples/acquaintance.yaml) and [phonebook.yaml](yaml-validator-cli/examples/phonebook.yaml)
+<details><summary>View contents of acquaintance.yaml</summary>
+<p>
+
 ```yaml
 ---
 uri: examples/0.0.3/acquaintance
@@ -49,7 +78,13 @@ schema:
       type: string
     value:
       type: number
+```
+</p></details>
 
+<details><summary>View contents of phonebook.yaml</summary>
+<p>
+
+```yaml
 ---
 uri: examples/0.0.3/phonebook
 schema:
@@ -68,6 +103,8 @@ schema:
         - name: department
           type: string
 ```
+</p></details>
+
 And a sample yaml file we can validate with the above schema:
 ```yaml
 ---
@@ -94,30 +131,6 @@ $ yaml-validator-cli            \
     peopleiknow.yaml
 valid: "peopleiknow.yaml"
 All files validated successfully!
-```
-
-## Command-line help information
-```
-yaml-validator-cli 0.0.2
-    Command-line interface to the yaml-validator library.
-    Use it to validate YAML files against a context of any number of cross-referencing schema files.
-    The schema format is proprietary, and does not offer compatibility with any other known YAML tools
-
-USAGE:
-    yaml-validator-cli [OPTIONS] [--] [files]...
-
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-OPTIONS:
-    -s, --schemas <schemas>...    Schemas to include in context to validate against. Schemas are added in order, but do
-                                  not validate references to other schemas upon loading.
-    -u, --uri <uri>               URI of the schema to validate the files against. If not supplied, the last schema
-                                  added will be used for validation.
-
-ARGS:
-    <files>...    Files to validate against the selected schemas.
 ```
 
 # Examples
