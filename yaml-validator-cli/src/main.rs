@@ -83,7 +83,12 @@ fn main() {
     match secret_main(&opt) {
         Ok(()) => println!("All files validated successfully!"),
         Err(e) => {
-            println!("failed: {}", e);
+            match e {
+                Error::InputError(e) => {
+                    println!("{}", e);
+                },
+                _ => println!("failed: {}", e)
+            }
             std::process::exit(1);
         }
     }
