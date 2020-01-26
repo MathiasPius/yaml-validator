@@ -282,9 +282,7 @@ impl YamlContext {
     ///     type: string
     /// "#).unwrap();
     ///
-    /// let context = YamlContext::from_schemas(vec![
-    ///     person
-    /// ]);
+    /// let context = YamlContext::from_schemas(vec![person]);
     /// ```
     pub fn from_schemas(schemas: Vec<YamlSchema>) -> Self {
         YamlContext { schemas }
@@ -302,9 +300,7 @@ impl YamlContext {
     /// #     type: string
     /// # "#).unwrap();
     /// #
-    /// # let mut context = YamlContext::from_schemas(vec![
-    /// #     person
-    /// # ]);
+    /// # let mut context = YamlContext::from_schemas(vec![person]);
     /// #
     /// let phonebook = YamlSchema::from_str(r#"
     /// schema:
@@ -332,9 +328,7 @@ impl YamlContext {
     ///     type: string
     /// "#).unwrap();
     ///
-    /// let context = YamlContext::from_schemas(vec![
-    ///     person
-    /// ]);
+    /// let context = YamlContext::from_schemas(vec![person]);
     ///
     /// assert!(context.lookup("example/person").is_some())
     /// ```
