@@ -29,7 +29,7 @@ All the example yaml files and schemas below can be found in the [yaml-validator
 ## Validating a single YAML file against a single schema
 You can use the command line tool to test a single yaml file against a single schema, by first defining a schema file and a yaml file to test it against:
 
-*Schema: examples/person.yaml*
+Schema: [person.yaml](yaml-validator-cli/examples/person.yaml)
 ```yaml
 ---
 schema:
