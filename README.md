@@ -83,7 +83,7 @@ We see that *malfoy.yaml* does not conform to the provided schema, and our progr
 ## Validating against a context containing interdependent schemas
 In this example we'll make use of the `reference` data type, which means we'll need to provide schemas we'll be referring to with a `uri` we can locate them by.
 
-The [person.yaml](yaml-validator-cli/examples/person.yaml) file from the first examples is already has a uri defined, it was just ommitted from the examples for simplicity's sake. You can inspect the file yourself:
+The [person.yaml](yaml-validator-cli/examples/person.yaml) file from the first examples already has a uri defined, it was just ommitted from the examples for simplicity's sake:
 ```yaml
 ---
 uri: examples/0.0.3/person
