@@ -12,20 +12,11 @@ trait YamlValidator<'a> {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-enum DataSigned {
-    Signed,
-    Unsigned,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataNumber {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<i128>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<i128>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sign: Option<DataSigned>,
 }
 
 impl<'a> YamlValidator<'a> for DataNumber {
