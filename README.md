@@ -135,6 +135,7 @@ once again *Malfoy* violates our schema with his stringified age, as we can tell
 Schema: [listofpeople.yaml](yaml-validator-cli/examples/listofpeople.yaml)
 ```yaml
 ---
+uri: examples/0.0.3/listofpeople
 schema:
   - name: people
     type: list
