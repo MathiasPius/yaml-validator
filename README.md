@@ -19,6 +19,77 @@ The schema format supports a very limited number of types that map very closely 
     * `fields` struct with known fields (unlike a dictionary). List of:
        * `name: string`
        * `type: <type>`
+ * `reference`
+    * `uri: string` uri of the schema this property references
+
+Here's an example schema file containing to interdependent schemas using a bit of all of the above types:
+
+Source: [acquaintance.yaml](yaml-validator-cli/examples/acquaintance.yaml) and [phonebook.yaml](yaml-validator-cli/examples/phonebook.yaml)
+```yaml
+---
+uri: examples/0.0.3/acquaintance
+schema:
+  - name: firstname
+    type: string
+    max_length: 20
+  - name: age
+    type: number
+  - name: favorite_foods
+    type: list
+    inner:
+      type: string
+  - name: movie_scores
+    type: dictionary
+    key:
+      type: string
+    value:
+      type: number
+
+---
+uri: examples/0.0.3/phonebook
+schema:
+  - name: friends
+    type: list
+    inner:
+      type: reference
+      uri: examples/0.0.3/acquaintance
+  - name: colleagues
+    type: list
+    inner: 
+      type: object
+      fields:
+        - name: name
+          type: string
+        - name: department
+          type: string
+```
+And a sample yaml file we can validate with the above schema:
+```yaml
+---
+friends:
+  - firstname: John
+    age: 58
+    favorite_foods:
+      - Spaghetti
+      - Lasagna
+    movie_scores:
+      The Room: 2.3
+      Good Will Hunting: 8.3
+colleagues:
+  - name: Peter
+    department: HR
+  - name: Harry
+    department: Finance
+```
+Test the above yaml using [peopleiknow.yaml](yaml-validator-cli/examples/peopleiknow.yaml):
+```bash
+$ yaml-validator-cli \
+    --schemas acquaintance.yaml \
+    --schemas phonebook.yaml 
+    peopleiknow.yaml
+valid: "peopleiknow.yaml"
+All files validated successfully!
+```
 
 ## Command-line help information
 ```
