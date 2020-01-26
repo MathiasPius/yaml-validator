@@ -84,8 +84,7 @@ pub enum StringValidationError {
 pub enum ListValidationError {}
 
 #[derive(Error, Debug)]
-pub enum DictionaryValidationError {
-}
+pub enum DictionaryValidationError {}
 
 #[derive(Error, Debug)]
 pub enum ObjectValidationError {}

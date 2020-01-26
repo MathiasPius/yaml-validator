@@ -208,6 +208,7 @@ struct Property {
     pub datatype: PropertyType,
 }
 
+/// Struct containing a list of internal properties as defined in its top-level `schema` field
 #[derive(Serialize, Deserialize, Debug)]
 pub struct YamlSchema {
     uri: Option<String>,
@@ -215,6 +216,23 @@ pub struct YamlSchema {
 }
 
 impl YamlSchema {
+    /// Validate a single yaml document against this schema
+    /// # Examples
+    /// This example specifies a single
+    /// ```rust
+    /// # use yaml_validator::YamlSchema;
+    /// # use std::str::FromStr;
+    /// #
+    /// let schema = YamlSchema::from_str(r#"
+    /// ---
+    /// schema:
+    ///   - name: firstname
+    ///     type: string
+    /// "#).unwrap();
+    /// 
+    /// assert!(schema.validate_str("firstname: John", None).is_ok());
+    /// assert!(!schema.validate_str("lastname: Smith", None).is_ok())
+    /// ```
     pub fn validate_str(
         &self,
         yaml: &str,
@@ -230,9 +248,9 @@ impl YamlSchema {
     }
 }
 
+/// Can I add comments to implementations?
 impl std::str::FromStr for YamlSchema {
     type Err = serde_yaml::Error;
-
     fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
         serde_yaml::from_str(schema)
     }
@@ -244,20 +262,82 @@ impl<'a> YamlValidator<'a> for YamlSchema {
     }
 }
 
+/// Context containing a list of schemas
 #[derive(Debug, Default)]
 pub struct YamlContext {
     schemas: Vec<YamlSchema>,
 }
 
 impl YamlContext {
+    /// Take ownership of a vector of schemas and use those to produce a context
+    /// # Examples
+    /// ```rust
+    /// # use yaml_validator::{YamlSchema, YamlContext};
+    /// # use std::str::FromStr;
+    /// #
+    /// let person = YamlSchema::from_str(r#"
+    /// uri: example/person
+    /// schema:
+    ///   - name: firstname
+    ///     type: string
+    /// "#).unwrap();
+    ///
+    /// let context = YamlContext::from_schemas(vec![
+    ///     person
+    /// ]);
+    /// ```
     pub fn from_schemas(schemas: Vec<YamlSchema>) -> Self {
         YamlContext { schemas }
     }
 
+    /// Move a new schema into an existing context
+    /// ```rust
+    /// # use yaml_validator::{YamlSchema, YamlContext};
+    /// # use std::str::FromStr;
+    /// #
+    /// # let person = YamlSchema::from_str(r#"
+    /// # uri: example/person
+    /// # schema:
+    /// #   - name: firstname
+    /// #     type: string
+    /// # "#).unwrap();
+    /// #
+    /// # let mut context = YamlContext::from_schemas(vec![
+    /// #     person
+    /// # ]);
+    /// #
+    /// let phonebook = YamlSchema::from_str(r#"
+    /// schema:
+    ///   - name: people
+    ///     type: reference
+    ///     uri: example/person
+    /// "#).unwrap();
+    ///
+    /// context.add_schema(phonebook);
+    /// ```
     pub fn add_schema(&mut self, schema: YamlSchema) {
         self.schemas.push(schema);
     }
 
+    /// Lookup a schema by uri within a YamlContext
+    /// # Examples
+    /// ```rust
+    /// # use yaml_validator::{YamlSchema, YamlContext};
+    /// # use std::str::FromStr;
+    /// #
+    /// let person = YamlSchema::from_str(r#"
+    /// uri: example/person
+    /// schema:
+    ///   - name: firstname
+    ///     type: string
+    /// "#).unwrap();
+    ///
+    /// let context = YamlContext::from_schemas(vec![
+    ///     person
+    /// ]);
+    ///
+    /// assert!(context.lookup("example/person").is_some())
+    /// ```
     pub fn lookup(&self, uri: &str) -> Option<&YamlSchema> {
         for schema in self.schemas.iter() {
             if let Some(ref schema_uri) = schema.uri {
@@ -269,6 +349,7 @@ impl YamlContext {
         None
     }
 
+    /// Returns an immutable list of the schemas currently available within the YamlContext
     pub fn schemas(&self) -> &Vec<YamlSchema> {
         &self.schemas
     }
