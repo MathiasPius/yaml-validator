@@ -1,5 +1,10 @@
-# yaml-validator
-YAML validation using schemas written in yaml
+# yaml-validator-cli
+Command-line interface for validating YAML files using schemas written in yaml.
+
+Quick Links:
+* [Supported Datatypes](#supported-datatypes)
+* [Command Line Arguments](#command-line-help-information)
+* [Examples](#examples)
 
 ## Supported datatypes
 The schema format supports a very limited number of types that map very closely to the YAML specification:
