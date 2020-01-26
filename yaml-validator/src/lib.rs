@@ -174,28 +174,28 @@ impl<'a> YamlValidator<'a> for DataObject {
 #[serde(rename_all = "lowercase", tag = "type")]
 enum PropertyType {
     #[serde(rename = "number")]
-    DataNumber(DataNumber),
+    Number(DataNumber),
     #[serde(rename = "string")]
-    DataString(DataString),
+    String(DataString),
     #[serde(rename = "list")]
-    DataList(DataList),
+    List(DataList),
     #[serde(rename = "dictionary")]
-    DataDictionary(DataDictionary),
+    Dictionary(DataDictionary),
     #[serde(rename = "object")]
-    DataObject(DataObject),
+    Object(DataObject),
     #[serde(rename = "reference")]
-    DataReference(DataReference),
+    Reference(DataReference),
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         match self {
-            PropertyType::DataNumber(p) => p.validate(value, context),
-            PropertyType::DataString(p) => p.validate(value, context),
-            PropertyType::DataList(p) => p.validate(value, context),
-            PropertyType::DataDictionary(p) => p.validate(value, context),
-            PropertyType::DataObject(p) => p.validate(value, context),
-            PropertyType::DataReference(p) => p.validate(value, context),
+            PropertyType::Number(p) => p.validate(value, context),
+            PropertyType::String(p) => p.validate(value, context),
+            PropertyType::List(p) => p.validate(value, context),
+            PropertyType::Dictionary(p) => p.validate(value, context),
+            PropertyType::Object(p) => p.validate(value, context),
+            PropertyType::Reference(p) => p.validate(value, context),
         }
     }
 }
@@ -229,7 +229,7 @@ impl YamlSchema {
     ///   - name: firstname
     ///     type: string
     /// "#).unwrap();
-    /// 
+    ///
     /// assert!(schema.validate_str("firstname: John", None).is_ok());
     /// assert!(!schema.validate_str("lastname: Smith", None).is_ok())
     /// ```
