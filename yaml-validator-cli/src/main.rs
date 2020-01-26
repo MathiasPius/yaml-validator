@@ -1,5 +1,6 @@
 use std::fs::read;
 use std::path::PathBuf;
+use std::str::FromStr;
 use structopt::StructOpt;
 use yaml_validator::{YamlContext, YamlSchema};
 
@@ -43,11 +44,12 @@ fn read_file(filename: &PathBuf) -> Result<String, std::io::Error> {
 }
 
 fn secret_main(opt: &Opt) -> Result<(), Error> {
-    let mut context = YamlContext::new();
+    let mut context = YamlContext::default();
 
     for schemafile in opt.schemas.iter() {
         let content = read_file(&schemafile)?;
-        context.add_schema(YamlSchema::from_str(&content));
+        let yaml = YamlSchema::from_str(&content)?;
+        context.add_schema(yaml);
     }
 
     let schema = {
@@ -57,12 +59,10 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
             } else {
                 panic!("Schema referenced by uri `{}` not found in context", uri);
             }
+        } else if let Some(schema) = context.schemas().last() {
+            schema
         } else {
-            if let Some(schema) = context.schemas().last() {
-                schema
-            } else {
-                panic!("No schemas supplied, see the --schema option for information");
-            }
+            panic!("No schemas supplied, see the --schema option for information");
         }
     };
 

@@ -1,6 +1,7 @@
 pub enum Error {
     FileError(String),
     ValidationError(String),
+    YamlError(String),
 }
 
 impl From<std::io::Error> for Error {
@@ -9,11 +10,18 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<serde_yaml::Error> for Error {
+    fn from(e: serde_yaml::Error) -> Self {
+        Error::YamlError(format!("{}", e))
+    }
+}
+
 impl<'a> std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::FileError(e) => write!(f, "{}", e),
             Error::ValidationError(e) => write!(f, "{}", e),
+            Error::YamlError(e) => write!(f, "{}", e),
         }
     }
 }

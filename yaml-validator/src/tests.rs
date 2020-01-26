@@ -1,4 +1,5 @@
 use super::{YamlContext, YamlSchema};
+use std::str::FromStr;
 
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
@@ -58,7 +59,7 @@ schema:
 
 #[test]
 fn validate_yaml_schema() {
-    let schema = YamlSchema::from_str(YAML_SCHEMA);
+    let schema = YamlSchema::from_str(YAML_SCHEMA).unwrap();
 
     schema.validate_str(&YAML_SCHEMA, None).unwrap();
 }
@@ -70,7 +71,7 @@ schema:
 
 #[test]
 fn test_missing_fields_in_schema() {
-    let schema = YamlSchema::from_str(YAML_SCHEMA);
+    let schema = YamlSchema::from_str(YAML_SCHEMA).unwrap();
 
     let err = schema
         .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA, None)
@@ -88,7 +89,7 @@ schema:
 
 #[test]
 fn test_wrong_type_for_field_in_schema() {
-    let schema = YamlSchema::from_str(YAML_SCHEMA);
+    let schema = YamlSchema::from_str(YAML_SCHEMA).unwrap();
 
     let err = schema
         .validate_str(&WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA, None)
@@ -113,7 +114,7 @@ const STRING_LIMIT_JUST_RIGHT: &'static str = "somestring: hello world";
 
 #[test]
 fn test_string_limits() {
-    let schema = YamlSchema::from_str(STRING_LIMIT_SCHEMA);
+    let schema = YamlSchema::from_str(STRING_LIMIT_SCHEMA).unwrap();
 
     assert_eq!(
         format!(
@@ -162,7 +163,7 @@ dict:
 
 #[test]
 fn test_dictionary_validation() {
-    let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA);
+    let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA).unwrap();
 
     assert!(schema
         .validate_str(&DICTIONARY_WITH_CORRECT_TYPES, None)
@@ -199,9 +200,9 @@ propref:
 
 #[test]
 fn test_schema_reference() {
-    let context = YamlContext::from_schemas(vec![YamlSchema::from_str(SCHEMA_WITH_URI)]);
+    let context = YamlContext::from_schemas(vec![YamlSchema::from_str(SCHEMA_WITH_URI).unwrap()]);
 
-    let schema = YamlSchema::from_str(SCHEMA_WITH_REFERENCE);
+    let schema = YamlSchema::from_str(SCHEMA_WITH_REFERENCE).unwrap();
     schema
         .validate_str(&YAML_FILE_WITH_REFERENCE, Some(&context))
         .unwrap();

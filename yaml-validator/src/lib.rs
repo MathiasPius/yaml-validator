@@ -143,7 +143,7 @@ struct DataObject {
 
 impl DataObject {
     pub fn validate<'a>(
-        properties: &'a Vec<Property>,
+        properties: &'a [Property],
         value: &'a Value,
         context: Option<&'a YamlContext>,
     ) -> Result<'a> {
@@ -215,10 +215,6 @@ pub struct YamlSchema {
 }
 
 impl YamlSchema {
-    pub fn from_str(schema: &str) -> YamlSchema {
-        serde_yaml::from_str(schema).expect("failed to parse string as yaml")
-    }
-
     pub fn validate_str(
         &self,
         yaml: &str,
@@ -234,26 +230,28 @@ impl YamlSchema {
     }
 }
 
+impl std::str::FromStr for YamlSchema {
+    type Err = serde_yaml::Error;
+
+    fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
+        serde_yaml::from_str(schema)
+    }
+}
+
 impl<'a> YamlValidator<'a> for YamlSchema {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         DataObject::validate(&self.schema, value, context).prepend("$".into())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct YamlContext {
     schemas: Vec<YamlSchema>,
 }
 
 impl YamlContext {
-    pub fn new() -> Self {
-        YamlContext { schemas: vec![] }
-    }
-
     pub fn from_schemas(schemas: Vec<YamlSchema>) -> Self {
-        YamlContext {
-            schemas: schemas.into(),
-        }
+        YamlContext { schemas }
     }
 
     pub fn add_schema(&mut self, schema: YamlSchema) {
@@ -268,7 +266,7 @@ impl YamlContext {
                 }
             }
         }
-        return None;
+        None
     }
 
     pub fn schemas(&self) -> &Vec<YamlSchema> {
