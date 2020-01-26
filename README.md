@@ -1,4 +1,12 @@
-# yaml-validator
+# yaml-validator [![Test Status]][library tests] [![Latest Version]][crates.io] [![Docs]][docs.rs]
+
+[Test Status]: https://github.com/MathiasPius/yaml-validator/workflows/yaml-validator%20tests/badge.svg
+[library tests]: /src/tests.rs
+[Latest Version]: https://img.shields.io/crates/v/yaml-validator
+[crates.io]: https://img.shields.io/crates/v/yaml-validator
+[Docs]: https://docs.rs/yaml-validator/badge.svg
+[docs.rs]: https://docs.rs/yaml-validator
+
 YAML validation using schemas written in yaml
 
 This project is really two parts:
