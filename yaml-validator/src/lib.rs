@@ -218,7 +218,7 @@ pub struct YamlSchema {
 impl YamlSchema {
     /// Validate a single yaml document against this schema
     /// # Examples
-    /// This example specifies a single
+    /// This example specifies a single schema, and validates two separate yaml documents against it
     /// ```rust
     /// # use yaml_validator::YamlSchema;
     /// # use std::str::FromStr;
