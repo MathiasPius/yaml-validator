@@ -1,13 +1,14 @@
 use thiserror::Error;
 
-pub(crate) type ValidationResult<'a> = std::result::Result<(), StatefulResult<'a>>;
+pub(crate) type ValidationResult<'a> =
+    std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
 
-pub(crate) struct StatefulResult<'a> {
-    pub error: YamlValidationError<'a>,
+pub(crate) struct StatefulResult<E> {
+    pub error: E,
     pub path: Vec<String>,
 }
 
-impl<'a> std::fmt::Display for StatefulResult<'a> {
+impl<'a> std::fmt::Display for StatefulResult<YamlValidationError<'a>> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for segment in self.path.iter().rev() {
             write!(f, "{}", segment)?;
@@ -29,8 +30,8 @@ impl<'a> PathContext<'a> for ValidationResult<'a> {
     }
 }
 
-impl<'a> Into<StatefulResult<'a>> for YamlValidationError<'a> {
-    fn into(self) -> StatefulResult<'a> {
+impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for YamlValidationError<'a> {
+    fn into(self) -> StatefulResult<YamlValidationError<'a>> {
         StatefulResult {
             error: self,
             path: vec![],
@@ -38,8 +39,8 @@ impl<'a> Into<StatefulResult<'a>> for YamlValidationError<'a> {
     }
 }
 
-impl<'a> Into<StatefulResult<'a>> for StringValidationError {
-    fn into(self) -> StatefulResult<'a> {
+impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for StringValidationError {
+    fn into(self) -> StatefulResult<YamlValidationError<'a>> {
         StatefulResult {
             error: self.into(),
             path: vec![],

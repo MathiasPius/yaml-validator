@@ -275,11 +275,10 @@ impl TryFrom<Yaml> for YamlSchema {
 
             let schema = yaml
                 .remove(&Yaml::String("schema".to_owned()))
-                .and_then(|_| Some(vec![])).unwrap();
+                .and_then(|_| Some(vec![]))
+                .unwrap();
 
-            return Ok(YamlSchema {
-                uri, schema,
-            });
+            return Ok(YamlSchema { uri, schema });
         }
 
         Ok(YamlSchema {
