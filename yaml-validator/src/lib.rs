@@ -11,6 +11,7 @@ trait YamlValidator<'a> {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a>;
 }
 
+#[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataNumber {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,6 +30,7 @@ impl<'a> YamlValidator<'a> for DataNumber {
     }
 }
 
+#[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataString {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -59,6 +61,7 @@ impl<'a> YamlValidator<'a> for DataString {
     }
 }
 
+#[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataReference {
     pub uri: String,
@@ -76,6 +79,7 @@ impl<'a> YamlValidator<'a> for DataReference {
     }
 }
 
+#[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataDictionary {
     pub key: Option<Box<PropertyType>>,
@@ -107,6 +111,7 @@ impl<'a> YamlValidator<'a> for DataDictionary {
     }
 }
 
+#[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataList {
     pub inner: Box<PropertyType>,
@@ -127,6 +132,7 @@ impl<'a> YamlValidator<'a> for DataList {
     }
 }
 
+#[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataObject {
     pub fields: Vec<Property>,
@@ -161,8 +167,9 @@ impl<'a> YamlValidator<'a> for DataObject {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 #[serde(rename_all = "lowercase", tag = "type")]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 enum PropertyType {
     #[serde(rename = "number")]
     Number(DataNumber),
@@ -191,8 +198,8 @@ impl<'a> YamlValidator<'a> for PropertyType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct Property {
     pub name: String,
     #[serde(flatten)]
