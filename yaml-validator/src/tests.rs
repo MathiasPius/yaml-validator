@@ -1,6 +1,7 @@
-use super::{YamlContext, YamlSchema};
+use super::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
+use yaml_rust::{Yaml, YamlLoader};
 
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
@@ -32,11 +33,55 @@ fn deserialize_many_types() {
 
 #[test]
 fn load_from_yaml() {
-    let yaml = yaml_rust::YamlLoader::load_from_str(DIFFERENT_TYPES).unwrap();
+    let yaml = YamlLoader::load_from_str(DIFFERENT_TYPES).unwrap();
     for doc in yaml.into_iter() {
         let schema = YamlSchema::try_from(doc).unwrap();
         println!("{:?}", schema);
     }
+}
+
+#[test]
+fn load_datastring_from_yaml_integer() {
+    let integer = YamlLoader::load_from_str("20").unwrap().remove(0);
+
+    assert_eq!(
+        DataString::try_from(integer).unwrap_err().error,
+        YamlSchemaError::SchemaParsingError("datastring is not an object")
+    );
+}
+
+#[test]
+fn load_datastring_with_string_max_length() {
+    let wrong_optionals = YamlLoader::load_from_str(
+        r#"---
+type: string
+max_length: hello
+"#,
+    )
+    .unwrap()
+    .remove(0);
+
+    assert_eq!(
+        DataString::try_from(wrong_optionals).unwrap_err().error,
+        YamlSchemaError::SchemaParsingError("max_length must be an integer")
+    );
+}
+
+#[test]
+fn load_datastring_with_extra_fields() {
+    let wrong_optionals = YamlLoader::load_from_str(
+        r#"---
+type: string
+extra_field: hello
+"#,
+    )
+    .unwrap()
+    .remove(0);
+
+    assert_eq!(
+        DataString::try_from(wrong_optionals).unwrap_err().error,
+        YamlSchemaError::SchemaParsingError("string element contains superfluous elements")
+    );
 }
 
 const YAML_SCHEMA: &'static str = r#"---

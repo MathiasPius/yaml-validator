@@ -4,6 +4,7 @@ use yaml_rust::ScanError;
 pub(crate) type ValidationResult<'a> =
     std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
 
+#[derive(Debug)]
 pub(crate) struct StatefulResult<E> {
     pub error: E,
     pub path: Vec<String>,
@@ -40,6 +41,15 @@ impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for YamlValidationError<'
     }
 }
 
+impl Into<StatefulResult<YamlSchemaError>> for YamlSchemaError {
+    fn into(self) -> StatefulResult<YamlSchemaError> {
+        StatefulResult {
+            error: self,
+            path: vec![],
+        }
+    }
+}
+
 impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for StringValidationError {
     fn into(self) -> StatefulResult<YamlValidationError<'a>> {
         StatefulResult {
@@ -49,12 +59,12 @@ impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for StringValidationError
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum YamlSchemaError {
     #[error("error reading yaml: {0}")]
     YamlScanError(#[from] ScanError),
     #[error("schema parsing yaml: {0}")]
-    SchemaParsingError(String),
+    SchemaParsingError(&'static str),
 }
 
 #[derive(Error, Debug)]

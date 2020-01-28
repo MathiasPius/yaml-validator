@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::convert::TryFrom;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::Yaml;
 
 #[cfg(test)]
 mod tests;
 
 mod error;
+pub use error::YamlSchemaError;
 use error::{ValidationResult, *};
 
 trait YamlValidator<'a> {
@@ -64,6 +65,63 @@ impl<'a> YamlValidator<'a> for DataString {
         } else {
             Err(YamlValidationError::WrongType("string", value).into())
         }
+    }
+}
+
+impl TryFrom<Yaml> for DataString {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let mut yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datastring is not an object").into()
+        })?;
+
+        let typefield = yaml.remove(&Yaml::String("type".into())).ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError(
+                "attempting to parse element as string, but object contains no 'type' field",
+            )
+            .into()
+        })?;
+        let typename = typefield.as_str().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError(
+                "attempting to parse element as string, but object's type field is not a string",
+            )
+            .into()
+        })?;
+
+        if typename != "string" {
+            return Err(YamlSchemaError::SchemaParsingError(
+                "attempting to parse element as string, but object's type field is not 'string'",
+            )
+            .into());
+        }
+
+        let max_length = if let Some(max_length) = yaml.remove(&Yaml::String("max_length".into())) {
+            Some(max_length.as_i64().ok_or_else(|| {
+                YamlSchemaError::SchemaParsingError("max_length must be an integer").into()
+            })? as usize)
+        } else {
+            None
+        };
+
+        let min_length = if let Some(min_length) = yaml.remove(&Yaml::String("min_length".into())) {
+            Some(min_length.as_i64().ok_or_else(|| {
+                YamlSchemaError::SchemaParsingError("min_length must be an integer").into()
+            })? as usize)
+        } else {
+            None
+        };
+
+        if !yaml.is_empty() {
+            return Err(YamlSchemaError::SchemaParsingError(
+                "string element contains superfluous elements",
+            )
+            .into());
+        }
+
+        Ok(DataString {
+            max_length,
+            min_length,
+        })
     }
 }
 
@@ -275,7 +333,7 @@ impl TryFrom<Yaml> for YamlSchema {
 
             let schema = yaml
                 .remove(&Yaml::String("schema".to_owned()))
-                .and_then(|_| Some(vec![]))
+                .map(|_| vec![])
                 .unwrap();
 
             return Ok(YamlSchema { uri, schema });
