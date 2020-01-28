@@ -1,6 +1,7 @@
 use thiserror::Error;
 
-pub(crate) type ValidationResult<'a> = std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
+pub(crate) type ValidationResult<'a> =
+    std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
 
 pub(crate) struct StatefulResult<E> {
     pub error: E,
