@@ -1,4 +1,5 @@
 use thiserror::Error;
+use yaml_rust::ScanError;
 
 pub(crate) type ValidationResult<'a> =
     std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
@@ -46,6 +47,14 @@ impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for StringValidationError
             path: vec![],
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum YamlSchemaError {
+    #[error("error reading yaml: {0}")]
+    YamlScanError(#[from] ScanError),
+    #[error("schema parsing yaml: {0}")]
+    SchemaParsingError(String),
 }
 
 #[derive(Error, Debug)]
