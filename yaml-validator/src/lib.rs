@@ -5,10 +5,10 @@ use serde_yaml::Value;
 mod tests;
 
 mod error;
-use error::{Result, *};
+use error::{ValidationResult, *};
 
 trait YamlValidator<'a> {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a>;
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a>;
 }
 
 #[serde(deny_unknown_fields)]
@@ -21,7 +21,7 @@ struct DataNumber {
 }
 
 impl<'a> YamlValidator<'a> for DataNumber {
-    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Value::Number(_) = value {
             Ok(())
         } else {
@@ -40,7 +40,7 @@ struct DataString {
 }
 
 impl<'a> YamlValidator<'a> for DataString {
-    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Value::String(inner) = value {
             if let Some(max_length) = self.max_length {
                 if inner.len() > max_length {
@@ -68,7 +68,7 @@ struct DataReference {
 }
 
 impl<'a> YamlValidator<'a> for DataReference {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Some(ctx) = context {
             if let Some(schema) = ctx.lookup(&self.uri) {
                 return DataObject::validate(&schema.schema, value, context);
@@ -86,7 +86,7 @@ struct DataDictionary {
 }
 
 impl<'a> YamlValidator<'a> for DataDictionary {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
                 if let Some(ref value) = self.value {
@@ -110,7 +110,7 @@ struct DataList {
 }
 
 impl<'a> YamlValidator<'a> for DataList {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let serde_yaml::Value::Sequence(items) = value {
             for (i, item) in items.iter().enumerate() {
                 self.inner
@@ -135,7 +135,7 @@ impl DataObject {
         properties: &'a [Property],
         value: &'a Value,
         context: Option<&'a YamlContext>,
-    ) -> Result<'a> {
+    ) -> ValidationResult<'a> {
         if let Value::Mapping(ref obj) = value {
             for prop in properties.iter() {
                 if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
@@ -154,7 +154,7 @@ impl DataObject {
 }
 
 impl<'a> YamlValidator<'a> for DataObject {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
         DataObject::validate(&self.fields, value, context)
     }
 }
@@ -178,7 +178,7 @@ enum PropertyType {
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
         match self {
             PropertyType::Number(p) => p.validate(value, context),
             PropertyType::String(p) => p.validate(value, context),
@@ -247,7 +247,7 @@ impl std::str::FromStr for YamlSchema {
 }
 
 impl<'a> YamlValidator<'a> for YamlSchema {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
+    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
         DataObject::validate(&self.schema, value, context).prepend("$".into())
     }
 }
