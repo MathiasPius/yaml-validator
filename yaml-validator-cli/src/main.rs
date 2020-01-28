@@ -57,12 +57,17 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
             if let Some(schema) = context.lookup(&uri) {
                 schema
             } else {
-                return Err(Error::ValidationError(format!("Schema referenced by uri `{}` not found in context", uri)));
+                return Err(Error::ValidationError(format!(
+                    "Schema referenced by uri `{}` not found in context",
+                    uri
+                )));
             }
         } else if let Some(schema) = context.schemas().last() {
             schema
         } else {
-            return Err(Error::InputError("No schemas supplied, see the --schema option for information".into()));
+            return Err(Error::InputError(
+                "No schemas supplied, see the --schema option for information".into(),
+            ));
         }
     };
 
@@ -86,8 +91,8 @@ fn main() {
             match e {
                 Error::InputError(e) => {
                     println!("{}", e);
-                },
-                _ => println!("failed: {}", e)
+                }
+                _ => println!("failed: {}", e),
             }
             std::process::exit(1);
         }

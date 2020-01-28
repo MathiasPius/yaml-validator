@@ -11,12 +11,8 @@ schema:
 
   - name: somedict
     type: dictionary
-    key: 
-      type: string
     value: 
       type: dictionary
-      key:
-        type: string
       value:
         type: string
   - name: someobject
@@ -53,8 +49,6 @@ schema:
               type: list
               inner:
                 type: dictionary
-                key:
-                  type: string
 "#;
 
 #[test]
@@ -143,8 +137,6 @@ const DICTIONARY_WITH_SET_TYPES_SCHEMA: &'static str = r#"---
 schema:
   - name: dict
     type: dictionary
-    key:
-      type: string
     value:
       type: number
 "#;

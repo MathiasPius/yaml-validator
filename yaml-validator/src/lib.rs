@@ -82,7 +82,6 @@ impl<'a> YamlValidator<'a> for DataReference {
 #[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataDictionary {
-    pub key: Option<Box<PropertyType>>,
     pub value: Option<Box<PropertyType>>,
 }
 
@@ -90,13 +89,6 @@ impl<'a> YamlValidator<'a> for DataDictionary {
     fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> Result<'a> {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
-                if let Some(ref key) = self.key {
-                    key.validate(item.0, context).prepend(format!(
-                        ".{}",
-                        item.0.as_str().unwrap_or("<non-string field>")
-                    ))?;
-                }
-
                 if let Some(ref value) = self.value {
                     value.validate(item.1, context).prepend(format!(
                         ".{}",

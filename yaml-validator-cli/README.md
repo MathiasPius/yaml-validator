@@ -74,8 +74,6 @@ schema:
       type: string
   - name: movie_scores
     type: dictionary
-    key:
-      type: string
     value:
       type: number
 ```
