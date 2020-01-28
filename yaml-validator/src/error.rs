@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-pub(crate) type Result<'a> = std::result::Result<(), StatefulResult<'a>>;
+pub(crate) type ValidationResult<'a> = std::result::Result<(), StatefulResult<'a>>;
 
 pub(crate) struct StatefulResult<'a> {
     pub error: YamlValidationError<'a>,
@@ -20,7 +20,7 @@ pub trait PathContext<'a> {
     fn prepend(self, segment: String) -> Self;
 }
 
-impl<'a> PathContext<'a> for Result<'a> {
+impl<'a> PathContext<'a> for ValidationResult<'a> {
     fn prepend(self, segment: String) -> Self {
         self.map_err(|mut state| {
             state.path.push(segment);
