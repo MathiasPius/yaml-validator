@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
+use std::convert::TryFrom;
+use yaml_rust::{Yaml, YamlLoader};
 
 #[cfg(test)]
 mod tests;
@@ -8,7 +10,11 @@ mod error;
 use error::{ValidationResult, *};
 
 trait YamlValidator<'a> {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a>;
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a>;
 }
 
 #[serde(deny_unknown_fields)]
@@ -68,7 +74,11 @@ struct DataReference {
 }
 
 impl<'a> YamlValidator<'a> for DataReference {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a> {
         if let Some(ctx) = context {
             if let Some(schema) = ctx.lookup(&self.uri) {
                 return DataObject::validate(&schema.schema, value, context);
@@ -86,7 +96,11 @@ struct DataDictionary {
 }
 
 impl<'a> YamlValidator<'a> for DataDictionary {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a> {
         if let Value::Mapping(dict) = value {
             for item in dict.iter() {
                 if let Some(ref value) = self.value {
@@ -110,7 +124,11 @@ struct DataList {
 }
 
 impl<'a> YamlValidator<'a> for DataList {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a> {
         if let serde_yaml::Value::Sequence(items) = value {
             for (i, item) in items.iter().enumerate() {
                 self.inner
@@ -154,7 +172,11 @@ impl DataObject {
 }
 
 impl<'a> YamlValidator<'a> for DataObject {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a> {
         DataObject::validate(&self.fields, value, context)
     }
 }
@@ -178,7 +200,11 @@ enum PropertyType {
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a> {
         match self {
             PropertyType::Number(p) => p.validate(value, context),
             PropertyType::String(p) => p.validate(value, context),
@@ -236,13 +262,29 @@ impl YamlSchema {
             Err(e) => Err(format!("{}", e)),
         }
     }
+}
 
-    pub fn from_yaml(
-        yaml: &yaml_rust::Yaml
-    ) -> Result<Self, yaml_rust::ScanError> {
+impl TryFrom<Yaml> for YamlSchema {
+    type Error = yaml_rust::ScanError;
+
+    fn try_from(yaml: Yaml) -> Result<YamlSchema, Self::Error> {
+        if let Some(mut yaml) = yaml.into_hash() {
+            let uri = yaml
+                .remove(&Yaml::String("uri".to_owned()))
+                .and_then(|uri| uri.into_string());
+
+            let schema = yaml
+                .remove(&Yaml::String("schema".to_owned()))
+                .and_then(|_| Some(vec![])).unwrap();
+
+            return Ok(YamlSchema {
+                uri, schema,
+            });
+        }
+
         Ok(YamlSchema {
             uri: None,
-            schema: vec![]
+            schema: vec![],
         })
     }
 }
@@ -256,7 +298,11 @@ impl std::str::FromStr for YamlSchema {
 }
 
 impl<'a> YamlValidator<'a> for YamlSchema {
-    fn validate(&'a self, value: &'a Value, context: Option<&'a YamlContext>) -> ValidationResult<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a> {
         DataObject::validate(&self.schema, value, context).prepend("$".into())
     }
 }

@@ -1,4 +1,5 @@
 use super::{YamlContext, YamlSchema};
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 const DIFFERENT_TYPES: &'static str = r#"---
@@ -27,6 +28,15 @@ schema:
 #[test]
 fn deserialize_many_types() {
     let _rd = YamlSchema::from_str(DIFFERENT_TYPES);
+}
+
+#[test]
+fn load_from_yaml() {
+    let yaml = yaml_rust::YamlLoader::load_from_str(DIFFERENT_TYPES).unwrap();
+    for doc in yaml.into_iter() {
+        let schema = YamlSchema::try_from(doc).unwrap();
+        println!("{:?}", schema);
+    }
 }
 
 const YAML_SCHEMA: &'static str = r#"---
