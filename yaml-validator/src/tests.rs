@@ -127,7 +127,7 @@ fn test_missing_fields_in_schema() {
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
-        "$.schema[0]: missing field, `name` not found"
+        "$.schema[0]: missing field, 'name' not found"
     );
 }
 
@@ -145,7 +145,7 @@ fn test_wrong_type_for_field_in_schema() {
         .expect_err("this should fail");
     assert_eq!(
         format!("{}", err),
-        "$.schema[0].name: wrong type, expected `string` got `Number(PosInt(200))`"
+        "$.schema[0].name: wrong type, expected 'string' got 'Number(PosInt(200))'"
     );
 }
 
@@ -222,7 +222,7 @@ fn test_dictionary_validation() {
                 .validate_str(&DICTIONARY_WITH_WRONG_TYPES, None)
                 .expect_err("this should fail")
         ),
-        "$.dict.hello: wrong type, expected `number` got `String(\"world\")`"
+        "$.dict.hello: wrong type, expected 'number' got 'String(\"world\")'"
     );
 }
 

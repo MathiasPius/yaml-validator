@@ -10,25 +10,25 @@ pub(crate) struct StatefulResult<E> {
     pub path: Vec<String>,
 }
 
+pub trait PathContext {
+    fn prepend(self, segment: String) -> Self;
+}
+
+impl<T, E> PathContext for Result<T, StatefulResult<E>> {
+    fn prepend(self, segment: String) -> Self {
+        self.map_err(|mut state| {
+            state.path.push(segment);
+            state
+        })
+    }
+}
+
 impl<'a> std::fmt::Display for StatefulResult<YamlValidationError<'a>> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for segment in self.path.iter().rev() {
             write!(f, "{}", segment)?;
         }
         write!(f, ": {}", self.error)
-    }
-}
-
-pub trait PathContext<'a> {
-    fn prepend(self, segment: String) -> Self;
-}
-
-impl<'a> PathContext<'a> for ValidationResult<'a> {
-    fn prepend(self, segment: String) -> Self {
-        self.map_err(|mut state| {
-            state.path.push(segment);
-            state
-        })
     }
 }
 
@@ -65,6 +65,28 @@ pub enum YamlSchemaError {
     YamlScanError(#[from] ScanError),
     #[error("schema parsing yaml: {0}")]
     SchemaParsingError(&'static str),
+    #[error("exptected type '{0}', got '{0}'")]
+    WrongType(&'static str, &'static str),
+    #[error("attempting to parse object as '{1}', but field type is '{0}'")]
+    TypeMismatch(&'static str, String),
+    #[error("missing field '{0}'")]
+    MissingField(&'static str),
+}
+
+pub(crate) trait OptionalField<T> {
+    fn into_optional(self) -> Result<Option<T>, StatefulResult<YamlSchemaError>>;
+}
+
+impl<T> OptionalField<T> for Result<T, StatefulResult<YamlSchemaError>> {
+    fn into_optional(self) -> Result<Option<T>, StatefulResult<YamlSchemaError>> {
+        match self {
+            Ok(value) => Ok(Some(value)),
+            Err(e) => match e.error {
+                YamlSchemaError::MissingField(_) => Ok(None),
+                _ => Err(e),
+            },
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -79,11 +101,11 @@ pub enum YamlValidationError<'a> {
     DictionaryValidationError(#[from] DictionaryValidationError),
     #[error("object validation error: {0}")]
     ObjectValidationError(#[from] ObjectValidationError),
-    #[error("wrong type, expected `{0}` got `{1:?}`")]
+    #[error("wrong type, expected '{0}' got '{1:?}'")]
     WrongType(&'static str, &'a serde_yaml::Value),
-    #[error("missing field, `{0}` not found")]
+    #[error("missing field, '{0}' not found")]
     MissingField(&'a str),
-    #[error("missing schema, `{0}` not found")]
+    #[error("missing schema, '{0}' not found")]
     MissingSchema(&'a str),
     #[error("no context defined, but schema references other schema")]
     MissingContext,

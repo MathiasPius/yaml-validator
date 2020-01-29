@@ -1,7 +1,11 @@
+use error::{OptionalField, PathContext};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::convert::TryFrom;
-use yaml_rust::Yaml;
+use yaml_rust::{
+    yaml::{Array, Hash},
+    Yaml,
+};
 
 #[cfg(test)]
 mod tests;
@@ -9,14 +13,6 @@ mod tests;
 mod error;
 pub use error::YamlSchemaError;
 use error::{ValidationResult, *};
-
-trait YamlValidator<'a> {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a>;
-}
 
 #[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -27,6 +23,181 @@ struct DataNumber {
     pub max: Option<i128>,
 }
 
+#[serde(deny_unknown_fields)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+struct DataString {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_length: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_length: Option<usize>,
+}
+
+#[serde(deny_unknown_fields)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+struct DataReference {
+    pub uri: String,
+}
+
+#[serde(deny_unknown_fields)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+struct DataDictionary {
+    pub value: Option<Box<PropertyType>>,
+}
+
+#[serde(deny_unknown_fields)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+struct DataList {
+    pub inner: Box<PropertyType>,
+}
+
+#[serde(deny_unknown_fields)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+struct DataObject {
+    pub fields: Vec<Property>,
+}
+
+trait YamlValidator<'a> {
+    fn validate(
+        &'a self,
+        value: &'a Value,
+        context: Option<&'a YamlContext>,
+    ) -> ValidationResult<'a>;
+}
+
+fn type_to_str(yaml: &Yaml) -> &'static str {
+    match yaml {
+        Yaml::Real(_) => "float",
+        Yaml::Integer(_) => "integer",
+        Yaml::String(_) => "string",
+        Yaml::Boolean(_) => "boolean",
+        Yaml::Array(_) => "array",
+        Yaml::Hash(_) => "hash",
+        Yaml::Alias(_) => "alias",
+        Yaml::Null => "null",
+        Yaml::BadValue => "bad_value",
+    }
+}
+
+trait HashAccessor<'a> {
+    fn get_field(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a Yaml, StatefulResult<YamlSchemaError>>;
+    fn verify_type(&'a self, typename: &'static str)
+        -> Result<(), StatefulResult<YamlSchemaError>>;
+    fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulResult<YamlSchemaError>>;
+    fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulResult<YamlSchemaError>>;
+    fn unwrap_str(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a str, StatefulResult<YamlSchemaError>>;
+    fn unwrap_hash(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a Hash, StatefulResult<YamlSchemaError>>;
+    fn unwrap_vec(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a Array, StatefulResult<YamlSchemaError>>;
+}
+
+impl<'a> HashAccessor<'a> for Hash {
+    fn get_field(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a Yaml, StatefulResult<YamlSchemaError>> {
+        self.get(&Yaml::String(field.into()))
+            .ok_or_else(|| YamlSchemaError::MissingField(field).into())
+            .prepend(field.into())
+    }
+
+    fn verify_type(
+        &'a self,
+        expected_type: &'static str,
+    ) -> Result<(), StatefulResult<YamlSchemaError>> {
+        let typename = self.unwrap_str("type")?;
+        if typename != expected_type {
+            return Err(YamlSchemaError::TypeMismatch(expected_type, typename.into()).into())
+                .prepend("type".into());
+        }
+
+        Ok(())
+    }
+
+    fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulResult<YamlSchemaError>> {
+        let value = self.get_field(field)?;
+        value
+            .as_bool()
+            .ok_or_else(|| YamlSchemaError::WrongType("boolean", type_to_str(value)).into())
+            .prepend(field.into())
+    }
+
+    fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulResult<YamlSchemaError>> {
+        let value = self.get_field(field)?;
+        value
+            .as_i64()
+            .ok_or_else(|| YamlSchemaError::WrongType("i64", type_to_str(value)).into())
+            .prepend(field.into())
+    }
+
+    fn unwrap_str(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a str, StatefulResult<YamlSchemaError>> {
+        let value = self.get_field(field)?;
+        value
+            .as_str()
+            .ok_or_else(|| YamlSchemaError::WrongType("string", type_to_str(value)).into())
+            .prepend(field.into())
+    }
+
+    fn unwrap_hash(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a Hash, StatefulResult<YamlSchemaError>> {
+        let value = self.get_field(field)?;
+        value
+            .as_hash()
+            .ok_or_else(|| YamlSchemaError::WrongType("hash", type_to_str(value)).into())
+            .prepend(field.into())
+    }
+
+    fn unwrap_vec(
+        &'a self,
+        field: &'static str,
+    ) -> Result<&'a Array, StatefulResult<YamlSchemaError>> {
+        let value = self.get_field(field)?;
+        value
+            .as_vec()
+            .ok_or_else(|| YamlSchemaError::WrongType("array", type_to_str(value)).into())
+            .prepend(field.into())
+    }
+}
+
+impl TryFrom<Yaml> for DataString {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datastring is not an object").into()
+        })?;
+
+        yaml.verify_type("string")?;
+        let max_length = yaml
+            .unwrap_i64("max_length")
+            .into_optional()?
+            .map(|i| i as usize);
+        let min_length = yaml
+            .unwrap_i64("min_length")
+            .into_optional()?
+            .map(|i| i as usize);
+
+        Ok(DataString {
+            max_length,
+            min_length,
+        })
+    }
+}
+
 impl<'a> YamlValidator<'a> for DataNumber {
     fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Value::Number(_) = value {
@@ -35,15 +206,6 @@ impl<'a> YamlValidator<'a> for DataNumber {
             Err(YamlValidationError::WrongType("number", value).into())
         }
     }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataString {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_length: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_length: Option<usize>,
 }
 
 impl<'a> YamlValidator<'a> for DataString {
@@ -68,69 +230,6 @@ impl<'a> YamlValidator<'a> for DataString {
     }
 }
 
-impl TryFrom<Yaml> for DataString {
-    type Error = StatefulResult<YamlSchemaError>;
-    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
-        let mut yaml = yaml.into_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datastring is not an object").into()
-        })?;
-
-        let typefield = yaml.remove(&Yaml::String("type".into())).ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError(
-                "attempting to parse element as string, but object contains no 'type' field",
-            )
-            .into()
-        })?;
-        let typename = typefield.as_str().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError(
-                "attempting to parse element as string, but object's type field is not a string",
-            )
-            .into()
-        })?;
-
-        if typename != "string" {
-            return Err(YamlSchemaError::SchemaParsingError(
-                "attempting to parse element as string, but object's type field is not 'string'",
-            )
-            .into());
-        }
-
-        let max_length = if let Some(max_length) = yaml.remove(&Yaml::String("max_length".into())) {
-            Some(max_length.as_i64().ok_or_else(|| {
-                YamlSchemaError::SchemaParsingError("max_length must be an integer").into()
-            })? as usize)
-        } else {
-            None
-        };
-
-        let min_length = if let Some(min_length) = yaml.remove(&Yaml::String("min_length".into())) {
-            Some(min_length.as_i64().ok_or_else(|| {
-                YamlSchemaError::SchemaParsingError("min_length must be an integer").into()
-            })? as usize)
-        } else {
-            None
-        };
-
-        if !yaml.is_empty() {
-            return Err(YamlSchemaError::SchemaParsingError(
-                "string element contains superfluous elements",
-            )
-            .into());
-        }
-
-        Ok(DataString {
-            max_length,
-            min_length,
-        })
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataReference {
-    pub uri: String,
-}
-
 impl<'a> YamlValidator<'a> for DataReference {
     fn validate(
         &'a self,
@@ -145,12 +244,6 @@ impl<'a> YamlValidator<'a> for DataReference {
         }
         Err(YamlValidationError::MissingContext.into())
     }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataDictionary {
-    pub value: Option<Box<PropertyType>>,
 }
 
 impl<'a> YamlValidator<'a> for DataDictionary {
@@ -175,12 +268,6 @@ impl<'a> YamlValidator<'a> for DataDictionary {
     }
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataList {
-    pub inner: Box<PropertyType>,
-}
-
 impl<'a> YamlValidator<'a> for DataList {
     fn validate(
         &'a self,
@@ -198,12 +285,6 @@ impl<'a> YamlValidator<'a> for DataList {
             Err(YamlValidationError::WrongType("list", value).into())
         }
     }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataObject {
-    pub fields: Vec<Property>,
 }
 
 impl DataObject {
