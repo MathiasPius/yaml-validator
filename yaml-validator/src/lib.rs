@@ -289,6 +289,39 @@ impl TryFrom<Yaml> for DataObject {
     }
 }
 
+impl TryFrom<Yaml> for PropertyType {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let hash = yaml.as_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("propertytype is not an object").into()
+        })?;
+
+        match hash.unwrap_str("type")? {
+            "number"        => Ok(PropertyType::Number(DataNumber::try_from(yaml)?)),
+            "string"        => Ok(PropertyType::String(DataString::try_from(yaml)?)),
+            "list"          => Ok(PropertyType::List(DataList::try_from(yaml)?)),
+            "dictionary"    => Ok(PropertyType::Dictionary(DataDictionary::try_from(yaml)?)),
+            "object"        => Ok(PropertyType::Object(DataObject::try_from(yaml)?)),
+            "reference"     => Ok(PropertyType::Reference(DataReference::try_from(yaml)?)),
+            unknown_type    => Err(YamlSchemaError::UnknownType(unknown_type.into()).into()),
+        }
+    }
+}
+
+impl TryFrom<Yaml> for Property {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let hash = yaml.as_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("property is not an object").into()
+        })?;
+
+        Ok(Property {
+            name: hash.unwrap_str("name")?.into(),
+            datatype: PropertyType::try_from(yaml)?
+        })
+    }
+}
+
 impl<'a> YamlValidator<'a> for DataNumber {
     fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Value::Number(_) = value {

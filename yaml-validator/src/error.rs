@@ -71,6 +71,8 @@ pub enum YamlSchemaError {
     TypeMismatch(&'static str, String),
     #[error("missing field '{0}'")]
     MissingField(&'static str),
+    #[error("unknown type '{0}'")]
+    UnknownType(String),
 }
 
 pub(crate) trait OptionalField<T> {
