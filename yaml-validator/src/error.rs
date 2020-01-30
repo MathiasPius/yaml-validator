@@ -105,7 +105,7 @@ pub enum YamlValidationError<'a> {
     #[error("string validation error: {0}")]
     StringValidationError(#[from] StringValidationError),
     #[error("list validation error: {0}")]
-    ListValidationError(#[from] ListValidationError),
+    ArrayValidationError(#[from] ArrayValidationError),
     #[error("dictionary validation error: {0}")]
     DictionaryValidationError(#[from] DictionaryValidationError),
     #[error("object validation error: {0}")]
@@ -137,7 +137,7 @@ pub enum StringValidationError {
 }
 
 #[derive(Error, Debug)]
-pub enum ListValidationError {}
+pub enum ArrayValidationError {}
 
 #[derive(Error, Debug)]
 pub enum DictionaryValidationError {}

@@ -87,8 +87,8 @@ extra_field: hello
 const YAML_SCHEMA: &'static str = r#"---
 schema:
   - name: schema
-    type: list
-    inner:
+    type: array
+    items:
       type: object
       fields:
         - name: name
@@ -101,8 +101,8 @@ schema:
             - name: type
               type: string
             - name: fields
-              type: list
-              inner:
+              type: array
+              items:
                 type: dictionary
 "#;
 
@@ -147,7 +147,7 @@ fn test_wrong_type_for_field_in_schema() {
 
     assert_eq!(
         format!("{}", err),
-        "$.schema[0].name: wrong type, expected 'string' got 'Number(PosInt(200))'"
+        "$.schema[0].name: wrong type, expected \'string\' got \'Integer(200)\'"
     );
 }
 
@@ -270,7 +270,7 @@ const SCHEMA_WITH_REFERENCE: &'static str = r#"---
 schema:
   - name: propref
     type: reference
-    uri: myuri/v1
+    $ref: myuri/v1
 "#;
 
 const YAML_FILE_WITH_REFERENCE: &'static str = r#"---

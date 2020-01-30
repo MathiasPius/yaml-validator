@@ -1,5 +1,6 @@
 use error::{OptionalField, PathContext};
 use std::convert::TryFrom;
+use std::ops::Index;
 use yaml_rust::{
     yaml::{Array, Hash},
     Yaml, YamlLoader,
@@ -35,7 +36,7 @@ struct DataDictionary {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct DataList {
+struct DataArray {
     pub inner: Option<Box<PropertyType>>,
 }
 
@@ -203,9 +204,7 @@ impl TryFrom<Yaml> for DataReference {
             YamlSchemaError::SchemaParsingError("datareference is not an object").into()
         })?;
 
-        yaml.verify_type("reference")?;
-
-        let uri = yaml.unwrap_str("uri")?.into();
+        let uri = yaml.unwrap_str("$ref")?.into();
 
         Ok(DataReference { uri })
     }
@@ -214,30 +213,30 @@ impl TryFrom<Yaml> for DataReference {
 impl TryFrom<Yaml> for DataDictionary {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
-        let yaml = yaml.into_hash().ok_or_else(|| {
+        let hash = yaml.as_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datadictionary is not an object").into()
         })?;
 
-        yaml.verify_type("dictionary")?;
+        hash.verify_type("dictionary")?;
 
-        let _value = yaml.unwrap_hash("value").into_optional()?;
+        let _value = yaml.index("value");
 
         Ok(DataDictionary { value: None })
     }
 }
 
-impl TryFrom<Yaml> for DataList {
+impl TryFrom<Yaml> for DataArray {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
-        let yaml = yaml.into_hash().ok_or_else(|| {
+        let hash = yaml.as_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datalist is not an object").into()
         })?;
 
-        yaml.verify_type("list")?;
+        hash.verify_type("array")?;
 
-        let _value = yaml.unwrap_hash("value").into_optional()?;
+        let inner = yaml.index("items");
 
-        Ok(DataList { inner: None })
+        Ok(DataArray { inner: PropertyType::try_from(inner.clone()).map(|i| Some(Box::new(i)))? })
     }
 }
 
@@ -273,7 +272,7 @@ impl TryFrom<Yaml> for PropertyType {
         match hash.unwrap_str("type")? {
             "integer" => Ok(PropertyType::Integer(DataInteger::try_from(yaml)?)),
             "string" => Ok(PropertyType::String(DataString::try_from(yaml)?)),
-            "list" => Ok(PropertyType::List(DataList::try_from(yaml)?)),
+            "array" => Ok(PropertyType::Array(DataArray::try_from(yaml)?)),
             "dictionary" => Ok(PropertyType::Dictionary(DataDictionary::try_from(yaml)?)),
             "object" => Ok(PropertyType::Object(DataObject::try_from(yaml)?)),
             "reference" => Ok(PropertyType::Reference(DataReference::try_from(yaml)?)),
@@ -369,8 +368,8 @@ impl<'a> YamlValidator<'a> for DataDictionary {
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         if let Yaml::Hash(dict) = value {
-            for item in dict.iter() {
-                if let Some(ref value) = self.value {
+            if let Some(ref value) = self.value {
+                for item in dict.iter() {
                     value.validate(item.1, context).prepend(format!(
                         ".{}",
                         item.0.as_str().unwrap_or("<non-string field>")
@@ -384,7 +383,7 @@ impl<'a> YamlValidator<'a> for DataDictionary {
     }
 }
 
-impl<'a> YamlValidator<'a> for DataList {
+impl<'a> YamlValidator<'a> for DataArray {
     fn validate(
         &'a self,
         value: &'a Yaml,
@@ -399,7 +398,7 @@ impl<'a> YamlValidator<'a> for DataList {
 
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("list", value).into())
+            Err(YamlValidationError::WrongType("array", value).into())
         }
     }
 }
@@ -441,7 +440,7 @@ impl<'a> YamlValidator<'a> for DataObject {
 enum PropertyType {
     Integer(DataInteger),
     String(DataString),
-    List(DataList),
+    Array(DataArray),
     Dictionary(DataDictionary),
     Object(DataObject),
     Reference(DataReference),
@@ -456,7 +455,7 @@ impl<'a> YamlValidator<'a> for PropertyType {
         match self {
             PropertyType::Integer(p) => p.validate(value, context),
             PropertyType::String(p) => p.validate(value, context),
-            PropertyType::List(p) => p.validate(value, context),
+            PropertyType::Array(p) => p.validate(value, context),
             PropertyType::Dictionary(p) => p.validate(value, context),
             PropertyType::Object(p) => p.validate(value, context),
             PropertyType::Reference(p) => p.validate(value, context),

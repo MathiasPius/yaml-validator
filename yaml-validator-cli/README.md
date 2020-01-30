@@ -47,7 +47,7 @@ The schema format supports a very limited number of types that map very closely 
  * `list`
     * `type: <type>` required, but will be made optional.
  * `object`
-    * `fields` struct with known fields (unlike a dictionary). List of:
+    * `fields` struct with known fields (unlike a dictionary). Array of:
        * `name: string`
        * `type: <type>`
  * `reference`
