@@ -1,11 +1,11 @@
 use thiserror::Error;
 use yaml_rust::{ScanError, Yaml};
 
-pub(crate) type ValidationResult<'a> =
+pub type ValidationResult<'a> =
     std::result::Result<(), StatefulError<YamlValidationError<'a>>>;
 
 #[derive(Debug)]
-pub(crate) struct StatefulError<E> {
+pub struct StatefulError<E> {
     pub error: E,
     pub path: Vec<String>,
 }

@@ -1,4 +1,4 @@
-use yaml_validator::YamlSchemaError;
+use yaml_validator::{StatefulError, YamlSchemaError};
 
 pub enum Error {
     FileError(String),
@@ -22,6 +22,12 @@ impl From<serde_yaml::Error> for Error {
 impl From<YamlSchemaError> for Error {
     fn from(e: YamlSchemaError) -> Self {
         Error::YamlError(format!("{}", e))
+    }
+}
+
+impl<E> From<StatefulError<E>> for Error where E: std::fmt::Display {
+    fn from(e: StatefulError<E>) -> Self {
+        Error::ValidationError(format!("{}: {}", e.path.join(""), e.error))
     }
 }
 

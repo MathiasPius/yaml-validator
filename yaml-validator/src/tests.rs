@@ -190,6 +190,37 @@ fn test_string_limits() {
     assert!(schema.validate_str(STRING_LIMIT_JUST_RIGHT, None).is_ok());
 }
 
+const INTEGER_LIMIT_SCHEMA: &'static str = r#"---
+schema:
+  - name: somestring
+    type: string
+    max: 10
+    min: 5
+"#;
+
+const INTEGER_LIMIT_TOO_SMALL: &'static str = "somestring: 2";
+const INTEGER_LIMIT_TOO_BIG: &'static str = "somestring: 15";
+const INTEGER_LIMIT_JUST_RIGHT: &'static str = "somestring: 7";
+
+#[test]
+fn test_integer_limits() {
+    let schema = YamlSchema::from_str(INTEGER_LIMIT_SCHEMA).unwrap();
+
+    let validation = schema.validate_str(&INTEGER_LIMIT_TOO_BIG, None);
+    assert_eq!(
+        format!("{}", validation.unwrap_err()),
+        "$.somestring: string validation error: string too long, max is 20, but string is 29"
+    );
+
+    let validation = schema.validate_str(&INTEGER_LIMIT_TOO_SMALL, None);
+    assert_eq!(
+        format!("{}", validation.unwrap_err()),
+        "$.somestring: string validation error: string too short, min is 10, but string is 5"
+    );
+
+    assert!(schema.validate_str(INTEGER_LIMIT_JUST_RIGHT, None).is_ok());
+}
+
 const DICTIONARY_WITH_SET_TYPES_SCHEMA: &'static str = r#"---
 schema:
   - name: dict

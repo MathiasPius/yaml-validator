@@ -9,7 +9,7 @@ use yaml_rust::{
 mod tests;
 
 mod error;
-pub use error::YamlSchemaError;
+pub use error::{StatefulError, YamlSchemaError};
 use error::{ValidationResult, *};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -250,9 +250,16 @@ impl TryFrom<Yaml> for DataObject {
 
         yaml.verify_type("object")?;
 
-        let _fields = yaml.unwrap_hash("fields").into_optional()?;
+        let fields = yaml.unwrap_vec("fields")?;
 
-        Ok(DataObject { fields: vec![] })
+        let mut parsed_fields = Vec::with_capacity(fields.len());
+        for field in fields.into_iter() {
+            parsed_fields.push(Property::try_from(field.clone())?);
+        }
+
+        Ok(DataObject {
+            fields: parsed_fields,
+        })
     }
 }
 
@@ -497,14 +504,14 @@ impl YamlSchema {
         let docs = YamlLoader::load_from_str(yaml)
             .map_err(|e| format!("{}", YamlValidationError::YamlScanError(e)))?;
         for doc in docs {
-            self.validate(&doc, context).map_err(|e| format!("{}", e))?
+            self.validate(&doc, context).map_err(|e| format!("{}", e))?;
         }
         Ok(())
     }
 }
 
 impl TryFrom<Yaml> for YamlSchema {
-    type Error = yaml_rust::ScanError;
+    type Error = StatefulError<YamlSchemaError>;
 
     fn try_from(yaml: Yaml) -> Result<YamlSchema, Self::Error> {
         if let Some(mut yaml) = yaml.into_hash() {
@@ -514,8 +521,8 @@ impl TryFrom<Yaml> for YamlSchema {
 
             let schema = yaml
                 .remove(&Yaml::String("schema".to_owned()))
-                .map(|_| vec![])
-                .unwrap();
+                .map(|properties| DataObject::try_from(properties))
+                .unwrap()?.fields;
 
             return Ok(YamlSchema { uri, schema });
         }
@@ -528,15 +535,15 @@ impl TryFrom<Yaml> for YamlSchema {
 }
 
 impl std::str::FromStr for YamlSchema {
-    type Err = YamlSchemaError;
+    type Err = StatefulError<YamlSchemaError>;
     fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
-        let mut docs = YamlLoader::load_from_str(schema)?;
-        let first = docs.pop().ok_or_else(|| YamlSchemaError::NoSchema)?;
+        let mut docs = YamlLoader::load_from_str(schema).map_err(|e| YamlSchemaError::YamlScanError(e).into())?;
+        let first = docs.pop().ok_or_else(|| YamlSchemaError::NoSchema.into())?;
 
         if docs.is_empty() {
             Ok(YamlSchema::try_from(first)?)
         } else {
-            Err(YamlSchemaError::MultipleSchemas)
+            Err(YamlSchemaError::MultipleSchemas.into())
         }
     }
 }
