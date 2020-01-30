@@ -95,7 +95,7 @@ schema:
           type: string
         - name: type
           type: string
-        - name: inner
+        - name: items
           type: object
           fields:
             - name: type
