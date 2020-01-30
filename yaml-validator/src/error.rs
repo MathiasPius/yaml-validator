@@ -1,5 +1,5 @@
 use thiserror::Error;
-use yaml_rust::{Yaml, ScanError};
+use yaml_rust::{ScanError, Yaml};
 
 pub(crate) type ValidationResult<'a> =
     std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;

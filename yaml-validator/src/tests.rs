@@ -1,7 +1,7 @@
 use super::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use yaml_rust::{YamlLoader};
+use yaml_rust::YamlLoader;
 
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
@@ -63,7 +63,7 @@ max_length: hello
 
     assert_eq!(
         DataString::try_from(wrong_optionals).unwrap_err().error,
-        YamlSchemaError::SchemaParsingError("max_length must be an integer")
+        YamlSchemaError::WrongType("i64", "string")
     );
 }
 

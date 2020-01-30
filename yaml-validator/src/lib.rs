@@ -2,8 +2,7 @@ use error::{OptionalField, PathContext};
 use std::convert::TryFrom;
 use yaml_rust::{
     yaml::{Array, Hash},
-    YamlLoader,
-    Yaml,
+    Yaml, YamlLoader,
 };
 
 #[cfg(test)]
@@ -14,9 +13,9 @@ pub use error::YamlSchemaError;
 use error::{ValidationResult, *};
 
 #[derive(Debug, PartialEq, Eq)]
-struct DataNumber {
-    pub min: Option<i128>,
-    pub max: Option<i128>,
+struct DataInteger {
+    pub min: Option<i64>,
+    pub max: Option<i64>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -187,19 +186,20 @@ impl TryFrom<Yaml> for DataString {
     }
 }
 
-impl TryFrom<Yaml> for DataNumber {
+impl TryFrom<Yaml> for DataInteger {
     type Error = StatefulResult<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datastring is not an object").into()
         })?;
 
-        yaml.verify_type("number")?;
+        yaml.verify_type("integer")?;
 
-        Ok(DataNumber {
-            max: None,
-            min: None,
-        })
+        let min = yaml.unwrap_i64("min").into_optional()?;
+
+        let max = yaml.unwrap_i64("max").into_optional()?;
+
+        Ok(DataInteger { min, max })
     }
 }
 
@@ -212,12 +212,9 @@ impl TryFrom<Yaml> for DataReference {
 
         yaml.verify_type("reference")?;
 
-        let uri = yaml
-            .unwrap_str("uri")?.into();
+        let uri = yaml.unwrap_str("uri")?.into();
 
-        Ok(DataReference {
-            uri,
-        })
+        Ok(DataReference { uri })
     }
 }
 
@@ -230,13 +227,9 @@ impl TryFrom<Yaml> for DataDictionary {
 
         yaml.verify_type("dictionary")?;
 
-        let _value = yaml
-            .unwrap_hash("value")
-            .into_optional()?;
+        let _value = yaml.unwrap_hash("value").into_optional()?;
 
-        Ok(DataDictionary {
-            value: None
-        })
+        Ok(DataDictionary { value: None })
     }
 }
 
@@ -249,13 +242,9 @@ impl TryFrom<Yaml> for DataList {
 
         yaml.verify_type("list")?;
 
-        let _value = yaml
-            .unwrap_hash("value")
-            .into_optional()?;
+        let _value = yaml.unwrap_hash("value").into_optional()?;
 
-        Ok(DataList {
-            inner: None
-        })
+        Ok(DataList { inner: None })
     }
 }
 
@@ -268,13 +257,9 @@ impl TryFrom<Yaml> for DataObject {
 
         yaml.verify_type("object")?;
 
-        let _fields = yaml
-            .unwrap_hash("fields")
-            .into_optional()?;
+        let _fields = yaml.unwrap_hash("fields").into_optional()?;
 
-        Ok(DataObject {
-            fields: vec![]
-        })
+        Ok(DataObject { fields: vec![] })
     }
 }
 
@@ -286,13 +271,13 @@ impl TryFrom<Yaml> for PropertyType {
         })?;
 
         match hash.unwrap_str("type")? {
-            "number"        => Ok(PropertyType::Number(DataNumber::try_from(yaml)?)),
-            "string"        => Ok(PropertyType::String(DataString::try_from(yaml)?)),
-            "list"          => Ok(PropertyType::List(DataList::try_from(yaml)?)),
-            "dictionary"    => Ok(PropertyType::Dictionary(DataDictionary::try_from(yaml)?)),
-            "object"        => Ok(PropertyType::Object(DataObject::try_from(yaml)?)),
-            "reference"     => Ok(PropertyType::Reference(DataReference::try_from(yaml)?)),
-            unknown_type    => Err(YamlSchemaError::UnknownType(unknown_type.into()).into()),
+            "integer" => Ok(PropertyType::Integer(DataInteger::try_from(yaml)?)),
+            "string" => Ok(PropertyType::String(DataString::try_from(yaml)?)),
+            "list" => Ok(PropertyType::List(DataList::try_from(yaml)?)),
+            "dictionary" => Ok(PropertyType::Dictionary(DataDictionary::try_from(yaml)?)),
+            "object" => Ok(PropertyType::Object(DataObject::try_from(yaml)?)),
+            "reference" => Ok(PropertyType::Reference(DataReference::try_from(yaml)?)),
+            unknown_type => Err(YamlSchemaError::UnknownType(unknown_type.into()).into()),
         }
     }
 }
@@ -306,17 +291,17 @@ impl TryFrom<Yaml> for Property {
 
         Ok(Property {
             name: hash.unwrap_str("name")?.into(),
-            datatype: PropertyType::try_from(yaml)?
+            datatype: PropertyType::try_from(yaml)?,
         })
     }
 }
 
-impl<'a> YamlValidator<'a> for DataNumber {
+impl<'a> YamlValidator<'a> for DataInteger {
     fn validate(&'a self, value: &'a Yaml, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Yaml::Integer(_) = value {
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("number", value).into())
+            Err(YamlValidationError::WrongType("integer", value).into())
         }
     }
 }
@@ -389,7 +374,9 @@ impl<'a> YamlValidator<'a> for DataList {
     ) -> ValidationResult<'a> {
         if let Yaml::Array(items) = value {
             for (i, item) in items.iter().enumerate() {
-                self.inner.as_ref().unwrap()
+                self.inner
+                    .as_ref()
+                    .unwrap()
                     .validate(item, context)
                     .prepend(format!("[{}]", i))?;
             }
@@ -435,7 +422,7 @@ impl<'a> YamlValidator<'a> for DataObject {
 
 #[derive(Debug, PartialEq, Eq)]
 enum PropertyType {
-    Number(DataNumber),
+    Integer(DataInteger),
     String(DataString),
     List(DataList),
     Dictionary(DataDictionary),
@@ -450,7 +437,7 @@ impl<'a> YamlValidator<'a> for PropertyType {
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         match self {
-            PropertyType::Number(p) => p.validate(value, context),
+            PropertyType::Integer(p) => p.validate(value, context),
             PropertyType::String(p) => p.validate(value, context),
             PropertyType::List(p) => p.validate(value, context),
             PropertyType::Dictionary(p) => p.validate(value, context),
@@ -496,10 +483,7 @@ impl YamlSchema {
         yaml: &str,
         context: Option<&YamlContext>,
     ) -> std::result::Result<(), String> {
-        match self.validate(
-            &Yaml::from_str(yaml),
-            context,
-        ) {
+        match self.validate(&Yaml::from_str(yaml), context) {
             Ok(()) => Ok(()),
             Err(e) => Err(format!("{}", e)),
         }
