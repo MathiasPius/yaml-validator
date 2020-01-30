@@ -124,7 +124,8 @@ fn test_missing_fields_in_schema() {
 
     let err = schema
         .validate_str(&MISSING_NAME_FIELD_IN_SCHEMA, None)
-        .expect_err("this should fail");
+        .unwrap_err();
+
     assert_eq!(
         format!("{}", err),
         "$.schema[0]: missing field, 'name' not found"
@@ -142,7 +143,8 @@ fn test_wrong_type_for_field_in_schema() {
 
     let err = schema
         .validate_str(&WRONG_TYPE_FOR_NAME_FIELD_IN_SCHEMA, None)
-        .expect_err("this should fail");
+        .unwrap_err();
+
     assert_eq!(
         format!("{}", err),
         "$.schema[0].name: wrong type, expected 'string' got 'Number(PosInt(200))'"
@@ -170,7 +172,7 @@ fn test_string_limits() {
             "{}",
             schema
                 .validate_str(&STRING_LIMIT_TOO_LONG, None)
-                .expect_err("this should fail")
+                .unwrap_err()
         ),
         "$.somestring: string validation error: string too long, max is 20, but string is 29"
     );
@@ -180,7 +182,7 @@ fn test_string_limits() {
             "{}",
             schema
                 .validate_str(&STRING_LIMIT_TOO_SHORT, None)
-                .expect_err("this should fail")
+                .unwrap_err()
         ),
         "$.somestring: string validation error: string too short, min is 10, but string is 5"
     );
@@ -220,7 +222,7 @@ fn test_dictionary_validation() {
             "{}",
             schema
                 .validate_str(&DICTIONARY_WITH_WRONG_TYPES, None)
-                .expect_err("this should fail")
+                .unwrap_err()
         ),
         "$.dict.hello: wrong type, expected 'number' got 'String(\"world\")'"
     );
