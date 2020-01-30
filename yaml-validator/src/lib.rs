@@ -47,7 +47,7 @@ struct DataDictionary {
 #[serde(deny_unknown_fields)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct DataList {
-    pub inner: Box<PropertyType>,
+    pub inner: Option<Box<PropertyType>>,
 }
 
 #[serde(deny_unknown_fields)]
@@ -198,6 +198,97 @@ impl TryFrom<Yaml> for DataString {
     }
 }
 
+impl TryFrom<Yaml> for DataNumber {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datastring is not an object").into()
+        })?;
+
+        yaml.verify_type("number")?;
+
+        Ok(DataNumber {
+            max: None,
+            min: None,
+        })
+    }
+}
+
+impl TryFrom<Yaml> for DataReference {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datareference is not an object").into()
+        })?;
+
+        yaml.verify_type("reference")?;
+
+        let uri = yaml
+            .unwrap_str("uri")?.into();
+
+        Ok(DataReference {
+            uri,
+        })
+    }
+}
+
+impl TryFrom<Yaml> for DataDictionary {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datadictionary is not an object").into()
+        })?;
+
+        yaml.verify_type("dictionary")?;
+
+        let _value = yaml
+            .unwrap_hash("value")
+            .into_optional()?;
+
+        Ok(DataDictionary {
+            value: None
+        })
+    }
+}
+
+impl TryFrom<Yaml> for DataList {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datalist is not an object").into()
+        })?;
+
+        yaml.verify_type("list")?;
+
+        let _value = yaml
+            .unwrap_hash("value")
+            .into_optional()?;
+
+        Ok(DataList {
+            inner: None
+        })
+    }
+}
+
+impl TryFrom<Yaml> for DataObject {
+    type Error = StatefulResult<YamlSchemaError>;
+    fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
+        let yaml = yaml.into_hash().ok_or_else(|| {
+            YamlSchemaError::SchemaParsingError("datalist is not an object").into()
+        })?;
+
+        yaml.verify_type("object")?;
+
+        let _fields = yaml
+            .unwrap_hash("fields")
+            .into_optional()?;
+
+        Ok(DataObject {
+            fields: vec![]
+        })
+    }
+}
+
 impl<'a> YamlValidator<'a> for DataNumber {
     fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
         if let Value::Number(_) = value {
@@ -276,7 +367,7 @@ impl<'a> YamlValidator<'a> for DataList {
     ) -> ValidationResult<'a> {
         if let serde_yaml::Value::Sequence(items) = value {
             for (i, item) in items.iter().enumerate() {
-                self.inner
+                self.inner.as_ref().unwrap()
                     .validate(item, context)
                     .prepend(format!("[{}]", i))?;
             }

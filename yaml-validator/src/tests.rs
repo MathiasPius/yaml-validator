@@ -1,7 +1,7 @@
 use super::*;
 use std::convert::TryFrom;
 use std::str::FromStr;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{YamlLoader};
 
 const DIFFERENT_TYPES: &'static str = r#"---
 schema:
