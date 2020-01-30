@@ -25,7 +25,10 @@ impl From<YamlSchemaError> for Error {
     }
 }
 
-impl<E> From<StatefulError<E>> for Error where E: std::fmt::Display {
+impl<E> From<StatefulError<E>> for Error
+where
+    E: std::fmt::Display,
+{
     fn from(e: StatefulError<E>) -> Self {
         Error::ValidationError(format!("{}: {}", e.path.join(""), e.error))
     }

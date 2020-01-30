@@ -245,7 +245,7 @@ impl TryFrom<Yaml> for DataObject {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datalist is not an object").into()
+            YamlSchemaError::SchemaParsingError("dataobject is not an object").into()
         })?;
 
         yaml.verify_type("object")?;
@@ -514,17 +514,20 @@ impl TryFrom<Yaml> for YamlSchema {
     type Error = StatefulError<YamlSchemaError>;
 
     fn try_from(yaml: Yaml) -> Result<YamlSchema, Self::Error> {
-        if let Some(mut yaml) = yaml.into_hash() {
+        if let Some(yaml) = yaml.as_hash() {
             let uri = yaml
-                .remove(&Yaml::String("uri".to_owned()))
-                .and_then(|uri| uri.into_string());
+                .unwrap_str("uri")
+                .into_optional()?
+                .and_then(|uri| Some(uri.into()));
 
-            let schema = yaml
-                .remove(&Yaml::String("schema".to_owned()))
-                .map(|properties| DataObject::try_from(properties))
-                .unwrap()?.fields;
+            let schema = yaml.unwrap_vec("schema")?;
 
-            return Ok(YamlSchema { uri, schema });
+            let mut parsed_fields = Vec::with_capacity(schema.len());
+            for field in schema {
+                parsed_fields.push(Property::try_from(field.clone())?);
+            }
+
+            return Ok(YamlSchema { uri, schema: parsed_fields });
         }
 
         Ok(YamlSchema {
@@ -537,7 +540,8 @@ impl TryFrom<Yaml> for YamlSchema {
 impl std::str::FromStr for YamlSchema {
     type Err = StatefulError<YamlSchemaError>;
     fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
-        let mut docs = YamlLoader::load_from_str(schema).map_err(|e| YamlSchemaError::YamlScanError(e).into())?;
+        let mut docs = YamlLoader::load_from_str(schema)
+            .map_err(|e| YamlSchemaError::YamlScanError(e).into())?;
         let first = docs.pop().ok_or_else(|| YamlSchemaError::NoSchema.into())?;
 
         if docs.is_empty() {

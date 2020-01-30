@@ -193,7 +193,7 @@ fn test_string_limits() {
 const INTEGER_LIMIT_SCHEMA: &'static str = r#"---
 schema:
   - name: somestring
-    type: string
+    type: integer
     max: 10
     min: 5
 "#;
@@ -209,13 +209,13 @@ fn test_integer_limits() {
     let validation = schema.validate_str(&INTEGER_LIMIT_TOO_BIG, None);
     assert_eq!(
         format!("{}", validation.unwrap_err()),
-        "$.somestring: string validation error: string too long, max is 20, but string is 29"
+        "$.somestring: integer validation error: integer too big, max is 10, but value is 15"
     );
 
     let validation = schema.validate_str(&INTEGER_LIMIT_TOO_SMALL, None);
     assert_eq!(
         format!("{}", validation.unwrap_err()),
-        "$.somestring: string validation error: string too short, min is 10, but string is 5"
+        "$.somestring: integer validation error: integer too small, min is 5, but value is 2"
     );
 
     assert!(schema.validate_str(INTEGER_LIMIT_JUST_RIGHT, None).is_ok());

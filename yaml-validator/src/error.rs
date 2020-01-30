@@ -1,8 +1,7 @@
 use thiserror::Error;
 use yaml_rust::{ScanError, Yaml};
 
-pub type ValidationResult<'a> =
-    std::result::Result<(), StatefulError<YamlValidationError<'a>>>;
+pub type ValidationResult<'a> = std::result::Result<(), StatefulError<YamlValidationError<'a>>>;
 
 #[derive(Debug)]
 pub struct StatefulError<E> {
