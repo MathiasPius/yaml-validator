@@ -9,7 +9,7 @@ schema:
     type: string
 
   - name: counter
-    type: number
+    type: integer
 
   - name: somedict
     type: dictionary
@@ -23,7 +23,7 @@ schema:
       - name: inside1
         type: string
       - name: inside2
-        type: number
+        type: integer
 "#;
 
 #[test]
@@ -226,7 +226,7 @@ schema:
   - name: dict
     type: dictionary
     value:
-      type: number
+      type: integer
 "#;
 
 const DICTIONARY_WITH_CORRECT_TYPES: &'static str = r#"---
@@ -255,7 +255,7 @@ fn test_dictionary_validation() {
                 .validate_str(&DICTIONARY_WITH_WRONG_TYPES, None)
                 .unwrap_err()
         ),
-        "$.dict.hello: wrong type, expected 'number' got 'String(\"world\")'"
+        "$.dict.hello: wrong type, expected 'integer' got 'String(\"world\")'"
     );
 }
 
@@ -263,7 +263,7 @@ const SCHEMA_WITH_URI: &'static str = r#"---
 uri: myuri/v1
 schema:
   - name: testproperty
-    type: number
+    type: integer
 "#;
 
 const SCHEMA_WITH_REFERENCE: &'static str = r#"---

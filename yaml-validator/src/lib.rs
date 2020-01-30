@@ -391,13 +391,12 @@ impl<'a> YamlValidator<'a> for DataList {
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         if let Yaml::Array(items) = value {
-            for (i, item) in items.iter().enumerate() {
-                self.inner
-                    .as_ref()
-                    .unwrap()
-                    .validate(item, context)
-                    .prepend(format!("[{}]", i))?;
+            if let Some(ref inner) = self.inner {
+                for (i, item) in items.iter().enumerate() {
+                    inner.validate(item, context).prepend(format!("[{}]", i))?;
+                }
             }
+
             Ok(())
         } else {
             Err(YamlValidationError::WrongType("list", value).into())
@@ -527,7 +526,10 @@ impl TryFrom<Yaml> for YamlSchema {
                 parsed_fields.push(Property::try_from(field.clone())?);
             }
 
-            return Ok(YamlSchema { uri, schema: parsed_fields });
+            return Ok(YamlSchema {
+                uri,
+                schema: parsed_fields,
+            });
         }
 
         Ok(YamlSchema {
