@@ -1,5 +1,5 @@
 use thiserror::Error;
-use yaml_rust::ScanError;
+use yaml_rust::{Yaml, ScanError};
 
 pub(crate) type ValidationResult<'a> =
     std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
@@ -104,7 +104,7 @@ pub enum YamlValidationError<'a> {
     #[error("object validation error: {0}")]
     ObjectValidationError(#[from] ObjectValidationError),
     #[error("wrong type, expected '{0}' got '{1:?}'")]
-    WrongType(&'static str, &'a serde_yaml::Value),
+    WrongType(&'static str, &'a Yaml),
     #[error("missing field, '{0}' not found")]
     MissingField(&'a str),
     #[error("missing schema, '{0}' not found")]

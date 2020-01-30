@@ -1,3 +1,5 @@
+use yaml_validator::YamlSchemaError;
+
 pub enum Error {
     FileError(String),
     ValidationError(String),
@@ -13,6 +15,12 @@ impl From<std::io::Error> for Error {
 
 impl From<serde_yaml::Error> for Error {
     fn from(e: serde_yaml::Error) -> Self {
+        Error::YamlError(format!("{}", e))
+    }
+}
+
+impl From<YamlSchemaError> for Error {
+    fn from(e: YamlSchemaError) -> Self {
         Error::YamlError(format!("{}", e))
     }
 }

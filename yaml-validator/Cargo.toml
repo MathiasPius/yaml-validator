@@ -10,7 +10,5 @@ license = "MIT"
 keywords = ["YAML", "validation", "schema"]
 
 [dependencies]
-serde = {version = "1.0.104", features = ["derive"] }
-serde_yaml = "0.8.11"
 yaml-rust = "0.4.3"
 thiserror = "1.0.9"

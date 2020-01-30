@@ -1,9 +1,8 @@
 use error::{OptionalField, PathContext};
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use std::convert::TryFrom;
 use yaml_rust::{
     yaml::{Array, Hash},
+    YamlLoader,
     Yaml,
 };
 
@@ -14,44 +13,34 @@ mod error;
 pub use error::YamlSchemaError;
 use error::{ValidationResult, *};
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct DataNumber {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<i128>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub max: Option<i128>,
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct DataString {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_length: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub min_length: Option<usize>,
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct DataReference {
     pub uri: String,
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct DataDictionary {
     pub value: Option<Box<PropertyType>>,
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct DataList {
     pub inner: Option<Box<PropertyType>>,
 }
 
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct DataObject {
     pub fields: Vec<Property>,
 }
@@ -59,7 +48,7 @@ struct DataObject {
 trait YamlValidator<'a> {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a>;
 }
@@ -323,8 +312,8 @@ impl TryFrom<Yaml> for Property {
 }
 
 impl<'a> YamlValidator<'a> for DataNumber {
-    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
-        if let Value::Number(_) = value {
+    fn validate(&'a self, value: &'a Yaml, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
+        if let Yaml::Integer(_) = value {
             Ok(())
         } else {
             Err(YamlValidationError::WrongType("number", value).into())
@@ -333,8 +322,8 @@ impl<'a> YamlValidator<'a> for DataNumber {
 }
 
 impl<'a> YamlValidator<'a> for DataString {
-    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
-        if let Value::String(inner) = value {
+    fn validate(&'a self, value: &'a Yaml, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
+        if let Yaml::String(inner) = value {
             if let Some(max_length) = self.max_length {
                 if inner.len() > max_length {
                     return Err(StringValidationError::TooLong(max_length, inner.len()).into());
@@ -357,7 +346,7 @@ impl<'a> YamlValidator<'a> for DataString {
 impl<'a> YamlValidator<'a> for DataReference {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         if let Some(ctx) = context {
@@ -373,10 +362,10 @@ impl<'a> YamlValidator<'a> for DataReference {
 impl<'a> YamlValidator<'a> for DataDictionary {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
-        if let Value::Mapping(dict) = value {
+        if let Yaml::Hash(dict) = value {
             for item in dict.iter() {
                 if let Some(ref value) = self.value {
                     value.validate(item.1, context).prepend(format!(
@@ -395,10 +384,10 @@ impl<'a> YamlValidator<'a> for DataDictionary {
 impl<'a> YamlValidator<'a> for DataList {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
-        if let serde_yaml::Value::Sequence(items) = value {
+        if let Yaml::Array(items) = value {
             for (i, item) in items.iter().enumerate() {
                 self.inner.as_ref().unwrap()
                     .validate(item, context)
@@ -414,12 +403,12 @@ impl<'a> YamlValidator<'a> for DataList {
 impl DataObject {
     pub fn validate<'a>(
         properties: &'a [Property],
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
-        if let Value::Mapping(ref obj) = value {
+        if let Yaml::Hash(ref obj) = value {
             for prop in properties.iter() {
-                if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
+                if let Some(field) = obj.get(&Yaml::from_str(&prop.name)) {
                     prop.datatype
                         .validate(field, context)
                         .prepend(format!(".{}", prop.name))?
@@ -437,35 +426,27 @@ impl DataObject {
 impl<'a> YamlValidator<'a> for DataObject {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         DataObject::validate(&self.fields, value, context)
     }
 }
 
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "lowercase", tag = "type")]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 enum PropertyType {
-    #[serde(rename = "number")]
     Number(DataNumber),
-    #[serde(rename = "string")]
     String(DataString),
-    #[serde(rename = "list")]
     List(DataList),
-    #[serde(rename = "dictionary")]
     Dictionary(DataDictionary),
-    #[serde(rename = "object")]
     Object(DataObject),
-    #[serde(rename = "reference")]
     Reference(DataReference),
 }
 
 impl<'a> YamlValidator<'a> for PropertyType {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         match self {
@@ -479,16 +460,14 @@ impl<'a> YamlValidator<'a> for PropertyType {
     }
 }
 
-#[serde(rename_all = "lowercase")]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 struct Property {
     pub name: String,
-    #[serde(flatten)]
     pub datatype: PropertyType,
 }
 
 /// Struct containing a list of internal properties as defined in its top-level `schema` field
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct YamlSchema {
     uri: Option<String>,
     schema: Vec<Property>,
@@ -518,7 +497,7 @@ impl YamlSchema {
         context: Option<&YamlContext>,
     ) -> std::result::Result<(), String> {
         match self.validate(
-            &serde_yaml::from_str(yaml).expect("failed to parse string as yaml"),
+            &Yaml::from_str(yaml),
             context,
         ) {
             Ok(()) => Ok(()),
@@ -551,18 +530,17 @@ impl TryFrom<Yaml> for YamlSchema {
     }
 }
 
-/// Can I add comments to implementations?
 impl std::str::FromStr for YamlSchema {
-    type Err = serde_yaml::Error;
+    type Err = YamlSchemaError;
     fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
-        serde_yaml::from_str(schema)
+        YamlSchema::try_from(Yaml::from_str(schema)).map_err(|e| e.into())
     }
 }
 
 impl<'a> YamlValidator<'a> for YamlSchema {
     fn validate(
         &'a self,
-        value: &'a Value,
+        value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         DataObject::validate(&self.schema, value, context).prepend("$".into())
