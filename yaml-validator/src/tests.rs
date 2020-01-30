@@ -41,6 +41,13 @@ fn load_from_yaml() {
 }
 
 #[test]
+fn load_datastring_from_yaml() {
+    let string = YamlLoader::load_from_str("type: string").unwrap().remove(0);
+
+    DataString::try_from(string).unwrap();
+}
+
+#[test]
 fn load_datastring_from_yaml_integer() {
     let integer = YamlLoader::load_from_str("20").unwrap().remove(0);
 
