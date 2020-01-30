@@ -189,9 +189,7 @@ impl TryFrom<Yaml> for DataInteger {
         })?;
 
         yaml.verify_type("integer")?;
-
         let min = yaml.unwrap_i64("min").into_optional()?;
-
         let max = yaml.unwrap_i64("max").into_optional()?;
 
         Ok(DataInteger { min, max })
@@ -293,7 +291,25 @@ impl TryFrom<Yaml> for Property {
 
 impl<'a> YamlValidator<'a> for DataInteger {
     fn validate(&'a self, value: &'a Yaml, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
-        if let Yaml::Integer(_) = value {
+        if let Yaml::Integer(value) = value {
+            if let Some(ref min) = self.min {
+                if value < min {
+                    return Err(YamlValidationError::IntegerValidationError(
+                        IntegerValidationError::TooSmall(*min, *value),
+                    )
+                    .into());
+                }
+            }
+
+            if let Some(ref max) = self.max {
+                if value > max {
+                    return Err(YamlValidationError::IntegerValidationError(
+                        IntegerValidationError::TooBig(*max, *value),
+                    )
+                    .into());
+                }
+            }
+
             Ok(())
         } else {
             Err(YamlValidationError::WrongType("integer", value).into())
@@ -517,9 +533,10 @@ impl std::str::FromStr for YamlSchema {
         let mut docs = YamlLoader::load_from_str(schema)?;
         let first = docs.pop().ok_or_else(|| YamlSchemaError::NoSchema)?;
 
-        match docs.is_empty() {
-            true => Ok(YamlSchema::try_from(first)?),
-            false => Err(YamlSchemaError::MultipleSchemas),
+        if docs.is_empty() {
+            Ok(YamlSchema::try_from(first)?)
+        } else {
+            Err(YamlSchemaError::MultipleSchemas)
         }
     }
 }

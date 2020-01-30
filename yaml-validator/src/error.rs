@@ -101,8 +101,8 @@ impl<T> OptionalField<T> for Result<T, StatefulError<YamlSchemaError>> {
 pub enum YamlValidationError<'a> {
     #[error("error reading yaml: {0}")]
     YamlScanError(#[from] ScanError),
-    #[error("number validation error: {0}")]
-    NumberValidationError(#[from] NumberValidationError),
+    #[error("integer validation error: {0}")]
+    IntegerValidationError(#[from] IntegerValidationError),
     #[error("string validation error: {0}")]
     StringValidationError(#[from] StringValidationError),
     #[error("list validation error: {0}")]
@@ -122,7 +122,12 @@ pub enum YamlValidationError<'a> {
 }
 
 #[derive(Error, Debug)]
-pub enum NumberValidationError {}
+pub enum IntegerValidationError {
+    #[error("integer too big, max is {0}, but value is {1}")]
+    TooBig(i64, i64),
+    #[error("integer too small, min is {0}, but value is {1}")]
+    TooSmall(i64, i64),
+}
 
 #[derive(Error, Debug)]
 pub enum StringValidationError {

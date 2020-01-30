@@ -26,6 +26,10 @@ schema:
         type: number
 "#;
 
+fn single_document_to_yaml(source: &str) -> Yaml {
+    YamlLoader::load_from_str(source).unwrap().pop().unwrap()
+}
+
 #[test]
 fn deserialize_many_types() {
     let _rd = YamlSchema::from_str(DIFFERENT_TYPES);
