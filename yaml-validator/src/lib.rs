@@ -67,33 +67,28 @@ fn type_to_str(yaml: &Yaml) -> &'static str {
 }
 
 trait HashAccessor<'a> {
-    fn get_field(
-        &'a self,
-        field: &'static str,
-    ) -> Result<&'a Yaml, StatefulResult<YamlSchemaError>>;
-    fn verify_type(&'a self, typename: &'static str)
-        -> Result<(), StatefulResult<YamlSchemaError>>;
-    fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulResult<YamlSchemaError>>;
-    fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulResult<YamlSchemaError>>;
-    fn unwrap_str(
-        &'a self,
-        field: &'static str,
-    ) -> Result<&'a str, StatefulResult<YamlSchemaError>>;
+    fn get_field(&'a self, field: &'static str)
+        -> Result<&'a Yaml, StatefulError<YamlSchemaError>>;
+    fn verify_type(&'a self, typename: &'static str) -> Result<(), StatefulError<YamlSchemaError>>;
+    fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulError<YamlSchemaError>>;
+    fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulError<YamlSchemaError>>;
+    fn unwrap_str(&'a self, field: &'static str)
+        -> Result<&'a str, StatefulError<YamlSchemaError>>;
     fn unwrap_hash(
         &'a self,
         field: &'static str,
-    ) -> Result<&'a Hash, StatefulResult<YamlSchemaError>>;
+    ) -> Result<&'a Hash, StatefulError<YamlSchemaError>>;
     fn unwrap_vec(
         &'a self,
         field: &'static str,
-    ) -> Result<&'a Array, StatefulResult<YamlSchemaError>>;
+    ) -> Result<&'a Array, StatefulError<YamlSchemaError>>;
 }
 
 impl<'a> HashAccessor<'a> for Hash {
     fn get_field(
         &'a self,
         field: &'static str,
-    ) -> Result<&'a Yaml, StatefulResult<YamlSchemaError>> {
+    ) -> Result<&'a Yaml, StatefulError<YamlSchemaError>> {
         self.get(&Yaml::String(field.into()))
             .ok_or_else(|| YamlSchemaError::MissingField(field).into())
             .prepend(field.into())
@@ -102,7 +97,7 @@ impl<'a> HashAccessor<'a> for Hash {
     fn verify_type(
         &'a self,
         expected_type: &'static str,
-    ) -> Result<(), StatefulResult<YamlSchemaError>> {
+    ) -> Result<(), StatefulError<YamlSchemaError>> {
         let typename = self.unwrap_str("type")?;
         if typename != expected_type {
             return Err(YamlSchemaError::TypeMismatch(expected_type, typename.into()).into())
@@ -112,7 +107,7 @@ impl<'a> HashAccessor<'a> for Hash {
         Ok(())
     }
 
-    fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulResult<YamlSchemaError>> {
+    fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulError<YamlSchemaError>> {
         let value = self.get_field(field)?;
         value
             .as_bool()
@@ -120,7 +115,7 @@ impl<'a> HashAccessor<'a> for Hash {
             .prepend(field.into())
     }
 
-    fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulResult<YamlSchemaError>> {
+    fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulError<YamlSchemaError>> {
         let value = self.get_field(field)?;
         value
             .as_i64()
@@ -131,7 +126,7 @@ impl<'a> HashAccessor<'a> for Hash {
     fn unwrap_str(
         &'a self,
         field: &'static str,
-    ) -> Result<&'a str, StatefulResult<YamlSchemaError>> {
+    ) -> Result<&'a str, StatefulError<YamlSchemaError>> {
         let value = self.get_field(field)?;
         value
             .as_str()
@@ -142,7 +137,7 @@ impl<'a> HashAccessor<'a> for Hash {
     fn unwrap_hash(
         &'a self,
         field: &'static str,
-    ) -> Result<&'a Hash, StatefulResult<YamlSchemaError>> {
+    ) -> Result<&'a Hash, StatefulError<YamlSchemaError>> {
         let value = self.get_field(field)?;
         value
             .as_hash()
@@ -153,7 +148,7 @@ impl<'a> HashAccessor<'a> for Hash {
     fn unwrap_vec(
         &'a self,
         field: &'static str,
-    ) -> Result<&'a Array, StatefulResult<YamlSchemaError>> {
+    ) -> Result<&'a Array, StatefulError<YamlSchemaError>> {
         let value = self.get_field(field)?;
         value
             .as_vec()
@@ -163,7 +158,7 @@ impl<'a> HashAccessor<'a> for Hash {
 }
 
 impl TryFrom<Yaml> for DataString {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datastring is not an object").into()
@@ -187,7 +182,7 @@ impl TryFrom<Yaml> for DataString {
 }
 
 impl TryFrom<Yaml> for DataInteger {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datastring is not an object").into()
@@ -204,7 +199,7 @@ impl TryFrom<Yaml> for DataInteger {
 }
 
 impl TryFrom<Yaml> for DataReference {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datareference is not an object").into()
@@ -219,7 +214,7 @@ impl TryFrom<Yaml> for DataReference {
 }
 
 impl TryFrom<Yaml> for DataDictionary {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datadictionary is not an object").into()
@@ -234,7 +229,7 @@ impl TryFrom<Yaml> for DataDictionary {
 }
 
 impl TryFrom<Yaml> for DataList {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datalist is not an object").into()
@@ -249,7 +244,7 @@ impl TryFrom<Yaml> for DataList {
 }
 
 impl TryFrom<Yaml> for DataObject {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("datalist is not an object").into()
@@ -264,7 +259,7 @@ impl TryFrom<Yaml> for DataObject {
 }
 
 impl TryFrom<Yaml> for PropertyType {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let hash = yaml.as_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("propertytype is not an object").into()
@@ -283,7 +278,7 @@ impl TryFrom<Yaml> for PropertyType {
 }
 
 impl TryFrom<Yaml> for Property {
-    type Error = StatefulResult<YamlSchemaError>;
+    type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let hash = yaml.as_hash().ok_or_else(|| {
             YamlSchemaError::SchemaParsingError("property is not an object").into()
@@ -478,15 +473,17 @@ impl YamlSchema {
     /// assert!(schema.validate_str("firstname: John", None).is_ok());
     /// assert!(!schema.validate_str("lastname: Smith", None).is_ok())
     /// ```
-    pub fn validate_str(
-        &self,
-        yaml: &str,
-        context: Option<&YamlContext>,
-    ) -> std::result::Result<(), String> {
-        match self.validate(&Yaml::from_str(yaml), context) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(format!("{}", e)),
+    pub fn validate_str<'a>(
+        &'a self,
+        yaml: &'a str,
+        context: Option<&'a YamlContext>,
+    ) -> Result<(), String> {
+        let docs = YamlLoader::load_from_str(yaml)
+            .map_err(|e| format!("{}", YamlValidationError::YamlScanError(e)))?;
+        for doc in docs {
+            self.validate(&doc, context).map_err(|e| format!("{}", e))?
         }
+        Ok(())
     }
 }
 
@@ -517,7 +514,13 @@ impl TryFrom<Yaml> for YamlSchema {
 impl std::str::FromStr for YamlSchema {
     type Err = YamlSchemaError;
     fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
-        YamlSchema::try_from(Yaml::from_str(schema)).map_err(|e| e.into())
+        let mut docs = YamlLoader::load_from_str(schema)?;
+        let first = docs.pop().ok_or_else(|| YamlSchemaError::NoSchema)?;
+
+        match docs.is_empty() {
+            true => Ok(YamlSchema::try_from(first)?),
+            false => Err(YamlSchemaError::MultipleSchemas),
+        }
     }
 }
 

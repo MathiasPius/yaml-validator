@@ -2,10 +2,10 @@ use thiserror::Error;
 use yaml_rust::{ScanError, Yaml};
 
 pub(crate) type ValidationResult<'a> =
-    std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
+    std::result::Result<(), StatefulError<YamlValidationError<'a>>>;
 
 #[derive(Debug)]
-pub(crate) struct StatefulResult<E> {
+pub(crate) struct StatefulError<E> {
     pub error: E,
     pub path: Vec<String>,
 }
@@ -14,7 +14,7 @@ pub trait PathContext {
     fn prepend(self, segment: String) -> Self;
 }
 
-impl<T, E> PathContext for Result<T, StatefulResult<E>> {
+impl<T, E> PathContext for Result<T, StatefulError<E>> {
     fn prepend(self, segment: String) -> Self {
         self.map_err(|mut state| {
             state.path.push(segment);
@@ -23,7 +23,7 @@ impl<T, E> PathContext for Result<T, StatefulResult<E>> {
     }
 }
 
-impl<'a> std::fmt::Display for StatefulResult<YamlValidationError<'a>> {
+impl<'a> std::fmt::Display for StatefulError<YamlValidationError<'a>> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for segment in self.path.iter().rev() {
             write!(f, "{}", segment)?;
@@ -32,27 +32,27 @@ impl<'a> std::fmt::Display for StatefulResult<YamlValidationError<'a>> {
     }
 }
 
-impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for YamlValidationError<'a> {
-    fn into(self) -> StatefulResult<YamlValidationError<'a>> {
-        StatefulResult {
+impl<'a> Into<StatefulError<YamlValidationError<'a>>> for YamlValidationError<'a> {
+    fn into(self) -> StatefulError<YamlValidationError<'a>> {
+        StatefulError {
             error: self,
             path: vec![],
         }
     }
 }
 
-impl Into<StatefulResult<YamlSchemaError>> for YamlSchemaError {
-    fn into(self) -> StatefulResult<YamlSchemaError> {
-        StatefulResult {
+impl Into<StatefulError<YamlSchemaError>> for YamlSchemaError {
+    fn into(self) -> StatefulError<YamlSchemaError> {
+        StatefulError {
             error: self,
             path: vec![],
         }
     }
 }
 
-impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for StringValidationError {
-    fn into(self) -> StatefulResult<YamlValidationError<'a>> {
-        StatefulResult {
+impl<'a> Into<StatefulError<YamlValidationError<'a>>> for StringValidationError {
+    fn into(self) -> StatefulError<YamlValidationError<'a>> {
+        StatefulError {
             error: self.into(),
             path: vec![],
         }
@@ -73,14 +73,20 @@ pub enum YamlSchemaError {
     MissingField(&'static str),
     #[error("unknown type '{0}'")]
     UnknownType(String),
+    #[error(
+        "input string contained multiple documents, but was attempted parsed as a single schema"
+    )]
+    MultipleSchemas,
+    #[error("input string contained no yaml documents, or was empty")]
+    NoSchema,
 }
 
 pub(crate) trait OptionalField<T> {
-    fn into_optional(self) -> Result<Option<T>, StatefulResult<YamlSchemaError>>;
+    fn into_optional(self) -> Result<Option<T>, StatefulError<YamlSchemaError>>;
 }
 
-impl<T> OptionalField<T> for Result<T, StatefulResult<YamlSchemaError>> {
-    fn into_optional(self) -> Result<Option<T>, StatefulResult<YamlSchemaError>> {
+impl<T> OptionalField<T> for Result<T, StatefulError<YamlSchemaError>> {
+    fn into_optional(self) -> Result<Option<T>, StatefulError<YamlSchemaError>> {
         match self {
             Ok(value) => Ok(Some(value)),
             Err(e) => match e.error {
@@ -93,6 +99,8 @@ impl<T> OptionalField<T> for Result<T, StatefulResult<YamlSchemaError>> {
 
 #[derive(Error, Debug)]
 pub enum YamlValidationError<'a> {
+    #[error("error reading yaml: {0}")]
+    YamlScanError(#[from] ScanError),
     #[error("number validation error: {0}")]
     NumberValidationError(#[from] NumberValidationError),
     #[error("string validation error: {0}")]
