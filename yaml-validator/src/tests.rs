@@ -8,11 +8,14 @@ fn load_simple(source: &'static str) -> Yaml {
 
 #[test]
 fn schemaobject_from_yaml() {
-    SchemaObject::try_from(&load_simple("items:\n  hello: world")).unwrap();
+    SchemaObject::try_from(&load_simple(
+        "items:\n  - name: something\n  - type: string",
+    ))
+    .unwrap();
 
     assert_eq!(
         SchemaObject::try_from(&load_simple("world")).unwrap_err(),
-        SchemaErrorKind::DescriptorNotHash {
+        SchemaErrorKind::WrongType {
             expected: "hash",
             actual: "string"
         }
@@ -21,7 +24,7 @@ fn schemaobject_from_yaml() {
 
     assert_eq!(
         SchemaObject::try_from(&load_simple("10")).unwrap_err(),
-        SchemaErrorKind::DescriptorNotHash {
+        SchemaErrorKind::WrongType {
             expected: "hash",
             actual: "integer"
         }
@@ -30,7 +33,7 @@ fn schemaobject_from_yaml() {
 
     assert_eq!(
         SchemaObject::try_from(&load_simple("- hello\n  - world")).unwrap_err(),
-        SchemaErrorKind::DescriptorNotHash {
+        SchemaErrorKind::WrongType {
             expected: "hash",
             actual: "array"
         }

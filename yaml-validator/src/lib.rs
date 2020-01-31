@@ -21,6 +21,23 @@ fn type_to_str(yaml: &Yaml) -> &'static str {
     }
 }
 
+fn as_type<'schema, F, T>(
+    yaml: &'schema Yaml,
+    expected: &'static str,
+    cast: F,
+) -> Result<T, SchemaError<'schema>>
+where
+    F: FnOnce(&'schema Yaml) -> Option<T>,
+{
+    Ok(cast(yaml).ok_or_else(|| {
+        SchemaErrorKind::WrongType {
+            expected,
+            actual: type_to_str(yaml),
+        }
+        .into()
+    })?)
+}
+
 fn lookup<'schema, F, T>(
     yaml: &'schema Yaml,
     field: &'static str,
@@ -33,13 +50,7 @@ where
     let value = yaml.index(field);
     match value {
         Yaml::BadValue => Err(SchemaErrorKind::FieldMissing { field }.into()),
-        content => Ok(cast(content).ok_or_else(|| {
-            SchemaErrorKind::WrongType {
-                expected,
-                actual: type_to_str(value),
-            }
-            .into()
-        })?),
+        content => as_type(content, expected, cast),
     }
 }
 
@@ -62,36 +73,50 @@ struct Property<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        let _hash = yaml.as_hash().ok_or_else(|| {
-            SchemaErrorKind::DescriptorNotHash {
-                expected: "hash",
-                actual: type_to_str(yaml),
+        as_type(yaml, "hash", |y| y.as_hash())?;
+
+        let items = lookup(yaml, "items", "vec", |yaml| yaml.as_vec())?;
+
+        let (items, errs): (Vec<_>, Vec<_>) = items
+            .iter()
+            .map(|field| Property::try_from(field))
+            .partition(Result::is_err);
+
+        if !errs.is_empty() {
+            return Err(SchemaErrorKind::Multiple {
+                errors: errs.into_iter().map(Result::unwrap_err).collect(),
             }
-            .into()
-        })?;
+            .into());
+        }
 
-        let _items = lookup(yaml, "items", "hash", |y| y.as_hash())?;
-
-        Ok(SchemaObject { items: vec![] })
+        Ok(SchemaObject {
+            items: items.into_iter().map(Result::unwrap).collect(),
+        })
     }
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        let _hash = yaml.as_hash().ok_or_else(|| {
-            SchemaErrorKind::DescriptorNotHash {
-                expected: "object",
-                actual: type_to_str(yaml),
-            }
-            .into()
-        })?;
+        as_type(yaml, "hash", |y| y.as_hash())?;
 
-        let typename = lookup(yaml, "type", "string", |y| y.as_str())?;
+        let typename = lookup(yaml, "type", "string", |yaml| yaml.as_str())?;
 
         match typename {
-            "object" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
+            "hash" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
         }
+    }
+}
+
+impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        as_type(yaml, "hash", |y| y.as_hash())?;
+
+        Ok(Property {
+            name: lookup(yaml, "name", "string", |yaml| yaml.as_str())?,
+            schematype: PropertyType::try_from(yaml)?,
+        })
     }
 }

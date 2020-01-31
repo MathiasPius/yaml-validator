@@ -13,11 +13,6 @@ impl<'a> Default for State<'a> {
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SchemaErrorKind<'schema> {
-    #[error("schema {expected} descriptor is a {actual} not a hash")]
-    DescriptorNotHash {
-        expected: &'static str,
-        actual: &'schema str,
-    },
     #[error("wrong type, expected {expected} got {actual}")]
     WrongType {
         expected: &'static str,
@@ -27,8 +22,8 @@ pub enum SchemaErrorKind<'schema> {
     FieldMissing { field: &'static str },
     #[error("unknown type specified: {unknown_type}")]
     UnknownType { unknown_type: &'schema str },
-    //#[error("multiple errors were encountered: {errors:?}")]
-    //Multiple { errors: Vec<SchemaError<'schema>> },
+    #[error("multiple errors were encountered: {errors:?}")]
+    Multiple { errors: Vec<SchemaError<'schema>> },
 }
 
 #[derive(Debug, PartialEq, Eq)]
