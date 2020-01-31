@@ -11,6 +11,6 @@ schema:
     inner:
       type: string
   - name: movie_scores
-    type: dictionary
+    type: hash
     value:
       type: number

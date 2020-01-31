@@ -39,15 +39,15 @@ The schema format supports a very limited number of types that map very closely 
     * `min_length: number` (optional)
     * `max_length: number` (optional)
  * `number`
- * `dictionary`
+ * `hash`
     * `key` (optional)
        * `type: <type>` should always be string really, will be removed.
     * `value` (optional)
-       * `type: <type>` type of the value in the dictionary.
+       * `type: <type>` type of the value in the hash.
  * `list`
     * `type: <type>` required, but will be made optional.
  * `object`
-    * `fields` struct with known fields (unlike a dictionary). Array of:
+    * `fields` struct with known fields (unlike a hash). Array of:
        * `name: string`
        * `type: <type>`
  * `reference`
@@ -73,7 +73,7 @@ schema:
     inner:
       type: string
   - name: movie_scores
-    type: dictionary
+    type: hash
     value:
       type: number
 ```
