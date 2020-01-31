@@ -44,7 +44,7 @@ where
 
 fn lookup<'schema, F, T>(
     yaml: &'schema Yaml,
-    field: &'static str,
+    field: &'schema str,
     expected: &'static str,
     cast: F,
 ) -> Result<T, SchemaError<'schema>>
@@ -168,5 +168,24 @@ impl Validate for SchemaInteger {
 impl<'schema> Validate for SchemaObject<'schema> {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         as_type(yaml, "hash", Yaml::as_hash).and_then(|_| Ok(()))
+    }
+}
+
+impl<'schema> Validate for Property<'schema> {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        as_type(yaml, "hash", Yaml::as_hash).and_then(|_| Ok(()))?;
+        lookup(yaml, "name", "string", Yaml::as_str)?;
+
+        self.schematype.validate(yaml)
+    }
+}
+
+impl<'schema> Validate for PropertyType<'schema> {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        match self {
+            PropertyType::Integer(p) => p.validate(yaml),
+            PropertyType::String(p) => p.validate(yaml),
+            PropertyType::Object(p) => p.validate(yaml),
+        }
     }
 }

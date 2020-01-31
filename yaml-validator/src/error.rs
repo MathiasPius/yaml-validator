@@ -19,7 +19,7 @@ pub enum SchemaErrorKind<'schema> {
         actual: &'schema str,
     },
     #[error("field {field} missing")]
-    FieldMissing { field: &'static str },
+    FieldMissing { field: &'schema str },
     #[error("unknown type specified: {unknown_type}")]
     UnknownType { unknown_type: &'schema str },
     #[error("multiple errors were encountered: {errors:?}")]
