@@ -7,6 +7,10 @@ mod error;
 mod tests;
 use error::{SchemaError, SchemaErrorKind};
 
+trait YamlValidator {
+    fn validate<'yaml>(yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
+}
+
 fn type_to_str(yaml: &Yaml) -> &'static str {
     match yaml {
         Yaml::Real(_) => "float",
