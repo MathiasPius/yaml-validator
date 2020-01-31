@@ -6,7 +6,6 @@ fn load_simple(source: &'static str) -> Yaml {
     YamlLoader::load_from_str(source).unwrap().remove(0)
 }
 
-
 mod schemaobject {
     use super::*;
     #[test]
@@ -58,10 +57,7 @@ mod schemastring {
     use super::*;
     #[test]
     fn schemastring_from_yaml() {
-        SchemaString::try_from(&load_simple(
-            "type: string",
-        ))
-        .unwrap();
+        SchemaString::try_from(&load_simple("type: string")).unwrap();
     }
 
     #[test]
