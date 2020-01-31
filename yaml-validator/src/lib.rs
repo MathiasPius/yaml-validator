@@ -61,8 +61,12 @@ struct SchemaObject<'schema> {
 }
 
 #[derive(Debug)]
+struct SchemaString {}
+
+#[derive(Debug)]
 enum PropertyType<'schema> {
     Object(SchemaObject<'schema>),
+    String(SchemaString),
 }
 
 #[derive(Debug)]
@@ -81,7 +85,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
         let (items, errs): (Vec<_>, Vec<_>) = items
             .into_iter()
             .map(|field| Property::try_from(field))
-            .partition(Result::is_err);
+            .partition(Result::is_ok);
 
         if !errs.is_empty() {
             return Err(SchemaErrorKind::Multiple {
@@ -96,6 +100,15 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     }
 }
 
+impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        as_type(yaml, "hash", Yaml::as_hash)?;
+
+        Ok(SchemaString {})
+    }
+}
+
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
@@ -104,6 +117,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         match typename {
             "hash" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
+            "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
         }
     }
