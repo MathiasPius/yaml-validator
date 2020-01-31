@@ -7,8 +7,8 @@ mod error;
 mod tests;
 use error::{SchemaError, SchemaErrorKind};
 
-trait YamlValidator {
-    fn validate<'yaml>(yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
+trait Validate {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
 }
 
 fn type_to_str(yaml: &Yaml) -> &'static str {
@@ -150,5 +150,17 @@ impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
             name: lookup(yaml, "name", "string", Yaml::as_str)?,
             schematype: PropertyType::try_from(yaml)?,
         })
+    }
+}
+
+impl Validate for SchemaString {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        as_type(yaml, "string", Yaml::as_str).and_then(|_| Ok(()))
+    }
+}
+
+impl Validate for SchemaInteger {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        as_type(yaml, "integer", Yaml::as_i64).and_then(|_| Ok(()))
     }
 }
