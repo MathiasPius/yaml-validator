@@ -12,14 +12,14 @@ schema:
     type: integer
 
   - name: somedict
-    type: dictionary
-    value: 
-      type: dictionary
-      value:
+    type: hash
+    items: 
+      type: hash
+      items:
         type: string
   - name: someobject
     type: object
-    fields:
+    items:
       - name: inside1
         type: string
       - name: inside2
@@ -53,7 +53,7 @@ fn load_datastring_from_yaml_integer() {
 
     assert_eq!(
         DataString::try_from(integer).unwrap_err().error,
-        YamlSchemaError::SchemaParsingError("datastring is not an object")
+        YamlSchemaError::SchemaParsingError("string descriptor is not an object")
     );
 }
 
@@ -97,20 +97,20 @@ schema:
     type: array
     items:
       type: object
-      fields:
+      items:
         - name: name
           type: string
         - name: type
           type: string
         - name: items
           type: object
-          fields:
+          items:
             - name: type
               type: string
-            - name: fields
+            - name: items
               type: array
               items:
-                type: dictionary
+                type: hash
 "#;
 
 #[test]
@@ -231,8 +231,8 @@ fn test_integer_limits() {
 const DICTIONARY_WITH_SET_TYPES_SCHEMA: &'static str = r#"---
 schema:
   - name: dict
-    type: dictionary
-    value:
+    type: hash
+    items:
       type: integer
 "#;
 
@@ -249,7 +249,7 @@ dict:
 "#;
 
 #[test]
-fn test_dictionary_validation() {
+fn test_hash_validation() {
     let schema = YamlSchema::from_str(DICTIONARY_WITH_SET_TYPES_SCHEMA).unwrap();
 
     assert!(schema

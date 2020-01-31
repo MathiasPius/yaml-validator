@@ -66,8 +66,8 @@ pub enum YamlSchemaError {
     SchemaParsingError(&'static str),
     #[error("exptected type '{0}', got '{0}'")]
     WrongType(&'static str, &'static str),
-    #[error("attempting to parse object as '{1}', but field type is '{0}'")]
-    TypeMismatch(&'static str, String),
+    #[error("attempting to parse object as '{1}', but field '{0}' is '{2}'")]
+    TypeMismatch(&'static str, &'static str, String),
     #[error("missing field '{0}'")]
     MissingField(&'static str),
     #[error("unknown type '{0}'")]
@@ -106,8 +106,8 @@ pub enum YamlValidationError<'a> {
     StringValidationError(#[from] StringValidationError),
     #[error("list validation error: {0}")]
     ArrayValidationError(#[from] ArrayValidationError),
-    #[error("dictionary validation error: {0}")]
-    DictionaryValidationError(#[from] DictionaryValidationError),
+    #[error("hash validation error: {0}")]
+    HashValidationError(#[from] HashValidationError),
     #[error("object validation error: {0}")]
     ObjectValidationError(#[from] ObjectValidationError),
     #[error("wrong type, expected '{0}' got '{1:?}'")]
@@ -140,7 +140,7 @@ pub enum StringValidationError {
 pub enum ArrayValidationError {}
 
 #[derive(Error, Debug)]
-pub enum DictionaryValidationError {}
+pub enum HashValidationError {}
 
 #[derive(Error, Debug)]
 pub enum ObjectValidationError {}

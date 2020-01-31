@@ -31,18 +31,18 @@ struct DataReference {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct DataDictionary {
-    pub value: Option<Box<PropertyType>>,
+struct DataHash {
+    pub items: Option<Box<PropertyType>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 struct DataArray {
-    pub inner: Option<Box<PropertyType>>,
+    pub items: Option<Box<PropertyType>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 struct DataObject {
-    pub fields: Vec<Property>,
+    pub items: Vec<Property>,
 }
 
 trait YamlValidator<'a> {
@@ -70,7 +70,11 @@ fn type_to_str(yaml: &Yaml) -> &'static str {
 trait HashAccessor<'a> {
     fn get_field(&'a self, field: &'static str)
         -> Result<&'a Yaml, StatefulError<YamlSchemaError>>;
-    fn verify_type(&'a self, typename: &'static str) -> Result<(), StatefulError<YamlSchemaError>>;
+    fn verify_content(
+        &'a self,
+        field: &'static str,
+        typename: &'static str,
+    ) -> Result<(), StatefulError<YamlSchemaError>>;
     fn unwrap_bool(&'a self, field: &'static str) -> Result<bool, StatefulError<YamlSchemaError>>;
     fn unwrap_i64(&'a self, field: &'static str) -> Result<i64, StatefulError<YamlSchemaError>>;
     fn unwrap_str(&'a self, field: &'static str)
@@ -95,14 +99,17 @@ impl<'a> HashAccessor<'a> for Hash {
             .prepend(field.into())
     }
 
-    fn verify_type(
+    fn verify_content(
         &'a self,
+        field: &'static str,
         expected_type: &'static str,
     ) -> Result<(), StatefulError<YamlSchemaError>> {
-        let typename = self.unwrap_str("type")?;
+        let typename = self.unwrap_str(field)?;
         if typename != expected_type {
-            return Err(YamlSchemaError::TypeMismatch(expected_type, typename.into()).into())
-                .prepend("type".into());
+            return Err(
+                YamlSchemaError::TypeMismatch(field, expected_type, typename.into()).into(),
+            )
+            .prepend(field.into());
         }
 
         Ok(())
@@ -162,10 +169,10 @@ impl TryFrom<Yaml> for DataString {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datastring is not an object").into()
+            YamlSchemaError::SchemaParsingError("string descriptor is not an object").into()
         })?;
 
-        yaml.verify_type("string")?;
+        yaml.verify_content("type", "string")?;
         let max_length = yaml
             .unwrap_i64("max_length")
             .into_optional()?
@@ -186,10 +193,10 @@ impl TryFrom<Yaml> for DataInteger {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datastring is not an object").into()
+            YamlSchemaError::SchemaParsingError("integer descriptor is not an object").into()
         })?;
 
-        yaml.verify_type("integer")?;
+        yaml.verify_content("type", "integer")?;
         let min = yaml.unwrap_i64("min").into_optional()?;
         let max = yaml.unwrap_i64("max").into_optional()?;
 
@@ -201,7 +208,7 @@ impl TryFrom<Yaml> for DataReference {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datareference is not an object").into()
+            YamlSchemaError::SchemaParsingError("reference descriptor is not an object").into()
         })?;
 
         let uri = yaml.unwrap_str("$ref")?.into();
@@ -210,18 +217,22 @@ impl TryFrom<Yaml> for DataReference {
     }
 }
 
-impl TryFrom<Yaml> for DataDictionary {
+impl TryFrom<Yaml> for DataHash {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let hash = yaml.as_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datadictionary is not an object").into()
+            YamlSchemaError::SchemaParsingError("hash descriptor is not an object").into()
         })?;
 
-        hash.verify_type("dictionary")?;
+        hash.verify_content("type", "hash")?;
 
-        let _value = yaml.index("value");
+        let items = yaml.index("items");
 
-        Ok(DataDictionary { value: None })
+        Ok(DataHash {
+            items: PropertyType::try_from(items.clone())
+                .map(|i| Some(Box::new(i)))
+                .prepend("items".into())?,
+        })
     }
 }
 
@@ -229,14 +240,17 @@ impl TryFrom<Yaml> for DataArray {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let hash = yaml.as_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("datalist is not an object").into()
+            YamlSchemaError::SchemaParsingError("array descriptor is not an object").into()
         })?;
 
-        hash.verify_type("array")?;
+        hash.verify_content("type", "array")?;
+        let items = yaml.index("items");
 
-        let inner = yaml.index("items");
-
-        Ok(DataArray { inner: PropertyType::try_from(inner.clone()).map(|i| Some(Box::new(i)))? })
+        Ok(DataArray {
+            items: PropertyType::try_from(items.clone())
+                .map(|i| Some(Box::new(i)))
+                .prepend("items".into())?,
+        })
     }
 }
 
@@ -244,20 +258,20 @@ impl TryFrom<Yaml> for DataObject {
     type Error = StatefulError<YamlSchemaError>;
     fn try_from(yaml: Yaml) -> Result<Self, Self::Error> {
         let yaml = yaml.into_hash().ok_or_else(|| {
-            YamlSchemaError::SchemaParsingError("dataobject is not an object").into()
+            YamlSchemaError::SchemaParsingError("object descriptor is not an object").into()
         })?;
 
-        yaml.verify_type("object")?;
+        yaml.verify_content("type", "object")?;
 
-        let fields = yaml.unwrap_vec("fields")?;
+        let items = yaml.unwrap_vec("items")?;
 
-        let mut parsed_fields = Vec::with_capacity(fields.len());
-        for field in fields.into_iter() {
-            parsed_fields.push(Property::try_from(field.clone())?);
+        let mut parsed_items = Vec::with_capacity(items.len());
+        for item in items.into_iter() {
+            parsed_items.push(Property::try_from(item.clone())?);
         }
 
         Ok(DataObject {
-            fields: parsed_fields,
+            items: parsed_items,
         })
     }
 }
@@ -273,7 +287,7 @@ impl TryFrom<Yaml> for PropertyType {
             "integer" => Ok(PropertyType::Integer(DataInteger::try_from(yaml)?)),
             "string" => Ok(PropertyType::String(DataString::try_from(yaml)?)),
             "array" => Ok(PropertyType::Array(DataArray::try_from(yaml)?)),
-            "dictionary" => Ok(PropertyType::Dictionary(DataDictionary::try_from(yaml)?)),
+            "hash" => Ok(PropertyType::Hash(DataHash::try_from(yaml)?)),
             "object" => Ok(PropertyType::Object(DataObject::try_from(yaml)?)),
             "reference" => Ok(PropertyType::Reference(DataReference::try_from(yaml)?)),
             unknown_type => Err(YamlSchemaError::UnknownType(unknown_type.into()).into()),
@@ -361,24 +375,24 @@ impl<'a> YamlValidator<'a> for DataReference {
     }
 }
 
-impl<'a> YamlValidator<'a> for DataDictionary {
+impl<'a> YamlValidator<'a> for DataHash {
     fn validate(
         &'a self,
         value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
         if let Yaml::Hash(dict) = value {
-            if let Some(ref value) = self.value {
-                for item in dict.iter() {
-                    value.validate(item.1, context).prepend(format!(
+            if let Some(ref item) = self.items {
+                for element in dict.iter() {
+                    item.validate(element.1, context).prepend(format!(
                         ".{}",
-                        item.0.as_str().unwrap_or("<non-string field>")
+                        element.0.as_str().unwrap_or("<non-string field>")
                     ))?;
                 }
             }
             Ok(())
         } else {
-            Err(YamlValidationError::WrongType("dictionary", value).into())
+            Err(YamlValidationError::WrongType("hash", value).into())
         }
     }
 }
@@ -389,10 +403,12 @@ impl<'a> YamlValidator<'a> for DataArray {
         value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
-        if let Yaml::Array(items) = value {
-            if let Some(ref inner) = self.inner {
-                for (i, item) in items.iter().enumerate() {
-                    inner.validate(item, context).prepend(format!("[{}]", i))?;
+        if let Yaml::Array(elements) = value {
+            if let Some(ref items) = self.items {
+                for (i, element) in elements.iter().enumerate() {
+                    items
+                        .validate(element, context)
+                        .prepend(format!("[{}]", i))?;
                 }
             }
 
@@ -432,7 +448,7 @@ impl<'a> YamlValidator<'a> for DataObject {
         value: &'a Yaml,
         context: Option<&'a YamlContext>,
     ) -> ValidationResult<'a> {
-        DataObject::validate(&self.fields, value, context)
+        DataObject::validate(&self.items, value, context)
     }
 }
 
@@ -441,7 +457,7 @@ enum PropertyType {
     Integer(DataInteger),
     String(DataString),
     Array(DataArray),
-    Dictionary(DataDictionary),
+    Hash(DataHash),
     Object(DataObject),
     Reference(DataReference),
 }
@@ -456,7 +472,7 @@ impl<'a> YamlValidator<'a> for PropertyType {
             PropertyType::Integer(p) => p.validate(value, context),
             PropertyType::String(p) => p.validate(value, context),
             PropertyType::Array(p) => p.validate(value, context),
-            PropertyType::Dictionary(p) => p.validate(value, context),
+            PropertyType::Hash(p) => p.validate(value, context),
             PropertyType::Object(p) => p.validate(value, context),
             PropertyType::Reference(p) => p.validate(value, context),
         }
