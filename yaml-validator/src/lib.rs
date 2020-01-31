@@ -50,6 +50,7 @@ where
     let value = yaml.index(field);
     match value {
         Yaml::BadValue => Err(SchemaErrorKind::FieldMissing { field }.into()),
+        Yaml::Null => Err(SchemaErrorKind::FieldMissing { field }.into()),
         content => as_type(content, expected, cast),
     }
 }
@@ -73,12 +74,12 @@ struct Property<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", |y| y.as_hash())?;
+        as_type(yaml, "hash", Yaml::as_hash)?;
 
-        let items = lookup(yaml, "items", "vec", |yaml| yaml.as_vec())?;
+        let items = lookup(yaml, "items", "vec", Yaml::as_vec)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
-            .iter()
+            .into_iter()
             .map(|field| Property::try_from(field))
             .partition(Result::is_err);
 
@@ -98,9 +99,8 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", |y| y.as_hash())?;
-
-        let typename = lookup(yaml, "type", "string", |yaml| yaml.as_str())?;
+        as_type(yaml, "hash", Yaml::as_hash)?;
+        let typename = lookup(yaml, "type", "string", Yaml::as_str)?;
 
         match typename {
             "hash" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
@@ -112,10 +112,10 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", |y| y.as_hash())?;
+        as_type(yaml, "hash", Yaml::as_hash)?;
 
         Ok(Property {
-            name: lookup(yaml, "name", "string", |yaml| yaml.as_str())?,
+            name: lookup(yaml, "name", "string", Yaml::as_str)?,
             schematype: PropertyType::try_from(yaml)?,
         })
     }
