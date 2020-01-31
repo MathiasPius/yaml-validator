@@ -59,15 +59,15 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct SchemaObject<'schema> {
     items: Vec<Property<'schema>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct SchemaString {}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct SchemaInteger {}
 
 #[derive(Debug)]
@@ -162,5 +162,11 @@ impl Validate for SchemaString {
 impl Validate for SchemaInteger {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         as_type(yaml, "integer", Yaml::as_i64).and_then(|_| Ok(()))
+    }
+}
+
+impl<'schema> Validate for SchemaObject<'schema> {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        as_type(yaml, "hash", Yaml::as_hash).and_then(|_| Ok(()))
     }
 }
