@@ -99,7 +99,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.as_type("hash", Yaml::as_hash)?;
+        yaml.strict_contents(&[], &["name", "type"])?;
 
         Ok(SchemaString {})
     }
@@ -108,7 +108,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.as_type("hash", Yaml::as_hash)?;
+        yaml.strict_contents(&[], &["name", "type"])?;
 
         Ok(SchemaInteger {})
     }
