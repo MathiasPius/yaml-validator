@@ -41,7 +41,7 @@ enum PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["name", "type"])?;
+        yaml.strict_contents(&["items"], &["type"])?;
 
         let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
@@ -75,7 +75,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["items", "name", "type"])?;
+        yaml.strict_contents(&[], &["items", "type"])?;
 
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
@@ -98,7 +98,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["name", "type"])?;
+        yaml.strict_contents(&[], &["type"])?;
 
         Ok(SchemaString {})
     }
@@ -107,7 +107,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["name", "type"])?;
+        yaml.strict_contents(&[], &["type"])?;
 
         Ok(SchemaInteger {})
     }

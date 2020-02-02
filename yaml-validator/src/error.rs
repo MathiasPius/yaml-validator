@@ -74,6 +74,7 @@ impl<'a> std::fmt::Display for SchemaError<'a> {
     }
 }
 
+#[cfg(test)]
 impl<'schema> SchemaErrorKind<'schema> {
     pub fn with_path(self, path: Vec<PathSegment<'schema>>) -> SchemaError<'schema> {
         SchemaError {
@@ -107,17 +108,6 @@ pub fn optional<'schema, T>(
     move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
         match err.kind {
             SchemaErrorKind::FieldMissing { .. } => Ok(default),
-            _ => Err(err),
-        }
-    }
-}
-
-pub fn incomplete<'schema, T>(
-    default: T,
-) -> impl FnOnce(SchemaError<'schema>) -> Result<T, SchemaError<'schema>> {
-    move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
-        match err.kind {
-            SchemaErrorKind::ExtraField { .. } => Ok(default),
             _ => Err(err),
         }
     }
