@@ -9,8 +9,8 @@ mod utils;
 use error::{add_err_path, optional, SchemaError, SchemaErrorKind};
 use utils::YamlUtils;
 
-trait Validate {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
+trait Validate<'yaml, 'schema: 'yaml> {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
 }
 
 #[derive(Debug, Default)]
@@ -140,32 +140,39 @@ impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     }
 }
 
-impl Validate for SchemaString {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
     }
 }
 
-impl Validate for SchemaInteger {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("integer", Yaml::as_i64).and_then(|_| Ok(()))
     }
 }
 
-impl<'schema> Validate for SchemaObject<'schema> {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
+
+        for schema_item in self.items.iter() {
+            let item = yaml.lookup(schema_item.name, "yaml", Option::from)?;
+            schema_item.validate(item)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))
     }
 }
 
-impl<'schema> Validate for SchemaArray<'schema> {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))
-    }
-}
-
-impl<'schema> Validate for Property<'schema> {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Property<'schema> {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
         yaml.lookup("name", "string", Yaml::as_str)?;
 
@@ -173,8 +180,8 @@ impl<'schema> Validate for Property<'schema> {
     }
 }
 
-impl<'schema> Validate for PropertyType<'schema> {
-    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         match self {
             PropertyType::Integer(p) => p.validate(yaml),
             PropertyType::String(p) => p.validate(yaml),

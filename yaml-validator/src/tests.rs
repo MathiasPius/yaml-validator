@@ -33,7 +33,7 @@ mod schemaobject {
             ))
             .unwrap_err(),
             SchemaErrorKind::WrongType {
-                expected: "vec",
+                expected: "array",
                 actual: "hash"
             }
             .into(),
