@@ -23,6 +23,37 @@ mod schemaobject {
     }
 
     #[test]
+    fn multiple_errors() {
+        assert_eq!(
+            SchemaObject::try_from(&load_simple(
+                r#"
+            items:
+              - name: valid
+                type: string
+              - name: error 1
+                type: unknown1
+              - name: error 2
+                type: unknown2
+        "#,
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::Multiple {
+                errors: vec![
+                    SchemaErrorKind::UnknownType {
+                        unknown_type: "unknown1"
+                    }
+                    .into(),
+                    SchemaErrorKind::UnknownType {
+                        unknown_type: "unknown2"
+                    }
+                    .into()
+                ]
+            }
+            .into()
+        );
+    }
+
+    #[test]
     fn from_string() {
         assert_eq!(
             SchemaObject::try_from(&load_simple("world")).unwrap_err(),
