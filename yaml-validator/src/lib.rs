@@ -158,29 +158,45 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
 
-        for schema_item in self.items.iter() {
-            let item = yaml
-                .lookup(schema_item.name, "yaml", Option::from)
-                .map_err(add_err_path(schema_item.name))?;
-            schema_item
-                .validate(item)
-                .map_err(add_err_path(schema_item.name))?;
-        }
+        let items: Vec<&'schema str> = self.items.iter().map(|item| item.name).collect();
+        yaml.strict_contents(&items, &[])?;
 
-        Ok(())
+        let mut errors: Vec<SchemaError<'yaml>> = self
+            .items
+            .iter()
+            .map(|schema_item| {
+                let item: &Yaml = yaml
+                    .lookup(schema_item.name, "yaml", Option::from)
+                    .map_err(add_err_path(schema_item.name))?;
+
+                schema_item
+                    .validate(item)
+                    .map_err(add_err_path(schema_item.name))?;
+                Ok(())
+            })
+            .filter_map(Result::err)
+            .collect();
+
+        if errors.is_empty() {
+            Ok(())
+        } else if errors.len() == 1 {
+            Err(errors.pop().unwrap())
+        } else {
+            Err(SchemaErrorKind::Multiple { errors }.into())
+        }
     }
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))
+        yaml.as_type("array", Yaml::as_vec).and_then(|_| Ok(()))
     }
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Property<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
-        yaml.lookup("name", "string", Yaml::as_str)?;
+        //        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
+        //        yaml.lookup("name", "string", Yaml::as_str)?;
 
         self.schematype.validate(yaml)
     }

@@ -180,9 +180,67 @@ mod schemaobject {
 
     #[test]
     fn validate_hash() {
-        let schema = SchemaObject::default();
+        let yaml = load_simple(
+            r#"
+            items:
+              - name: hello
+                type: string
+              - name: world
+                type: integer
+            "#,
+        );
 
-        schema.validate(&load_simple("hello: world")).unwrap();
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+
+        schema
+            .validate(&load_simple(
+                r#"
+            hello: world
+            world: 20
+        "#,
+            ))
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_noncompliant() {
+        let yaml = load_simple(
+            r#"
+            items:
+              - name: hello
+                type: string
+              - name: world
+                type: integer
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+
+        assert_eq!(
+            schema
+                .validate(&load_simple(
+                    r#"
+            hello: 20
+            world: world
+        "#,
+                ))
+                .unwrap_err(),
+            SchemaErrorKind::Multiple {
+                errors: vec![
+                    SchemaErrorKind::WrongType {
+                        expected: "string",
+                        actual: "integer"
+                    }
+                    .with_path(vec!["hello"]),
+                    SchemaErrorKind::WrongType {
+                        expected: "integer",
+                        actual: "string"
+                    }
+                    .with_path(vec!["world"])
+                ]
+            }
+            .into()
+        );
     }
 }
 
@@ -268,7 +326,7 @@ mod schemaarray {
         assert_eq!(
             schema.validate(&load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
-                expected: "hash",
+                expected: "array",
                 actual: "string"
             }
             .into()
@@ -282,7 +340,7 @@ mod schemaarray {
         assert_eq!(
             schema.validate(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
-                expected: "hash",
+                expected: "array",
                 actual: "integer"
             }
             .into()
@@ -291,30 +349,28 @@ mod schemaarray {
 
     #[test]
     fn validate_array() {
-        let schema = SchemaArray::default();
-
-        assert_eq!(
-            schema
-                .validate(&load_simple(
-                    r#"
+        SchemaArray::default()
+            .validate(&load_simple(
+                r#"
                 - abc
                 - 123
-            "#
-                ))
-                .unwrap_err(),
-            SchemaErrorKind::WrongType {
-                expected: "hash",
-                actual: "array"
-            }
-            .into()
-        );
+            "#,
+            ))
+            .unwrap();
     }
 
     #[test]
     fn validate_hash() {
         let schema = SchemaArray::default();
 
-        schema.validate(&load_simple("hello: world")).unwrap();
+        assert_eq!(
+            schema.validate(&load_simple("hello: world")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "array",
+                actual: "hash"
+            }
+            .into()
+        );
     }
 }
 
