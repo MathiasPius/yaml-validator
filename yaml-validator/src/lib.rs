@@ -1,62 +1,16 @@
 use std::convert::TryFrom;
-use std::ops::Index;
 use yaml_rust::Yaml;
 
 mod error;
 #[cfg(test)]
 mod tests;
+mod utils;
+
 use error::{SchemaError, SchemaErrorKind};
+use utils::YamlUtils;
 
 trait Validate {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
-}
-
-fn type_to_str(yaml: &Yaml) -> &'static str {
-    match yaml {
-        Yaml::Real(_) => "float",
-        Yaml::Integer(_) => "integer",
-        Yaml::String(_) => "string",
-        Yaml::Boolean(_) => "boolean",
-        Yaml::Array(_) => "array",
-        Yaml::Hash(_) => "hash",
-        Yaml::Alias(_) => "alias",
-        Yaml::Null => "null",
-        Yaml::BadValue => "bad_value",
-    }
-}
-
-fn as_type<'schema, F, T>(
-    yaml: &'schema Yaml,
-    expected: &'static str,
-    cast: F,
-) -> Result<T, SchemaError<'schema>>
-where
-    F: FnOnce(&'schema Yaml) -> Option<T>,
-{
-    Ok(cast(yaml).ok_or_else(|| {
-        SchemaErrorKind::WrongType {
-            expected,
-            actual: type_to_str(yaml),
-        }
-        .into()
-    })?)
-}
-
-fn lookup<'schema, F, T>(
-    yaml: &'schema Yaml,
-    field: &'schema str,
-    expected: &'static str,
-    cast: F,
-) -> Result<T, SchemaError<'schema>>
-where
-    F: FnOnce(&'schema Yaml) -> Option<T>,
-{
-    let value = yaml.index(field);
-    match value {
-        Yaml::BadValue => Err(SchemaErrorKind::FieldMissing { field }.into()),
-        Yaml::Null => Err(SchemaErrorKind::FieldMissing { field }.into()),
-        content => as_type(content, expected, cast),
-    }
 }
 
 #[derive(Debug, Default)]
@@ -86,9 +40,9 @@ struct Property<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", Yaml::as_hash)?;
+        yaml.as_type("hash", Yaml::as_hash)?;
 
-        let items = lookup(yaml, "items", "vec", Yaml::as_vec)?;
+        let items = yaml.lookup("items", "vec", Yaml::as_vec)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
             .iter()
@@ -111,7 +65,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", Yaml::as_hash)?;
+        yaml.as_type("hash", Yaml::as_hash)?;
 
         Ok(SchemaString {})
     }
@@ -120,7 +74,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", Yaml::as_hash)?;
+        yaml.as_type("hash", Yaml::as_hash)?;
 
         Ok(SchemaInteger {})
     }
@@ -129,8 +83,8 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", Yaml::as_hash)?;
-        let typename = lookup(yaml, "type", "string", Yaml::as_str)?;
+        yaml.as_type("hash", Yaml::as_hash)?;
+        let typename = yaml.lookup("type", "string", Yaml::as_str)?;
 
         match typename {
             "hash" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
@@ -144,10 +98,10 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        as_type(yaml, "hash", Yaml::as_hash)?;
+        yaml.as_type("hash", Yaml::as_hash)?;
 
         Ok(Property {
-            name: lookup(yaml, "name", "string", Yaml::as_str)?,
+            name: yaml.lookup("name", "string", Yaml::as_str)?,
             schematype: PropertyType::try_from(yaml)?,
         })
     }
@@ -155,26 +109,26 @@ impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
 
 impl Validate for SchemaString {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        as_type(yaml, "string", Yaml::as_str).and_then(|_| Ok(()))
+        yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
     }
 }
 
 impl Validate for SchemaInteger {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        as_type(yaml, "integer", Yaml::as_i64).and_then(|_| Ok(()))
+        yaml.as_type("integer", Yaml::as_i64).and_then(|_| Ok(()))
     }
 }
 
 impl<'schema> Validate for SchemaObject<'schema> {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        as_type(yaml, "hash", Yaml::as_hash).and_then(|_| Ok(()))
+        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))
     }
 }
 
 impl<'schema> Validate for Property<'schema> {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        as_type(yaml, "hash", Yaml::as_hash).and_then(|_| Ok(()))?;
-        lookup(yaml, "name", "string", Yaml::as_str)?;
+        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
+        yaml.lookup("name", "string", Yaml::as_str)?;
 
         self.schematype.validate(yaml)
     }
