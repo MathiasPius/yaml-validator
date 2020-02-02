@@ -48,7 +48,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.as_type("hash", Yaml::as_hash)?;
 
-        let items = yaml.lookup("items", "vec", Yaml::as_vec)?;
+        let items = yaml.lookup("items", "array", Yaml::as_vec)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
             .iter()
@@ -77,6 +77,9 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.as_type("hash", Yaml::as_hash)?;
 
+        // I'm using Option::from here because I don't actually want to transform
+        // the resulting yaml object into a specific type, but need the yaml itself
+        // to be passed into PropertyType::try_from
         yaml.lookup("items", "yaml", Option::from)
             .map(|inner| {
                 Ok(SchemaArray {
