@@ -157,8 +157,12 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
 
         for schema_item in self.items.iter() {
-            let item = yaml.lookup(schema_item.name, "yaml", Option::from)?;
-            schema_item.validate(item)?;
+            let item = yaml
+                .lookup(schema_item.name, "yaml", Option::from)
+                .map_err(add_err_path(schema_item.name))?;
+            schema_item
+                .validate(item)
+                .map_err(add_err_path(schema_item.name))?;
         }
 
         Ok(())

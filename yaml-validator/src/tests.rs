@@ -197,7 +197,8 @@ mod schemaarray {
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "array"
-            }.with_path(vec!["items"])
+            }
+            .with_path(vec!["items"])
             .into(),
         );
     }
