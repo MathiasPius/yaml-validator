@@ -23,6 +23,24 @@ mod schemaobject {
     }
 
     #[test]
+    fn malformed_items() {
+        assert_eq!(
+            SchemaObject::try_from(&load_simple(
+                r#"
+            items:
+              hello: world
+        "#,
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "vec",
+                actual: "hash"
+            }
+            .into(),
+        );
+    }
+
+    #[test]
     fn multiple_errors() {
         assert_eq!(
             SchemaObject::try_from(&load_simple(
