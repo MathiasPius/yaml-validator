@@ -44,9 +44,7 @@ impl<'schema> SchemaErrorKind<'schema> {
     pub fn with_path(self, path: Vec<PathSegment<'schema>>) -> SchemaError<'schema> {
         SchemaError {
             kind: self,
-            state: State {
-                path
-            },
+            state: State { path },
         }
     }
 }

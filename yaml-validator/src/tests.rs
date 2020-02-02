@@ -76,11 +76,17 @@ mod schemaobject {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(vec![PathSegment::Name("error 1"),PathSegment::Name("items")]),
+                    .with_path(vec![
+                        PathSegment::Name("error 1"),
+                        PathSegment::Name("items")
+                    ]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(vec![PathSegment::Name("error 2"),PathSegment::Name("items")]),
+                    .with_path(vec![
+                        PathSegment::Name("error 2"),
+                        PathSegment::Name("items")
+                    ]),
                 ]
             }
             .into()
@@ -383,20 +389,26 @@ mod schemaarray {
             "#,
                 ))
                 .unwrap_err(),
-            SchemaErrorKind::Multiple { errors: vec![
-                SchemaErrorKind::WrongType {
-                    expected: "integer",
-                    actual: "string"
-                }.with_path(vec![PathSegment::Index(0)]),
-                SchemaErrorKind::WrongType {
-                    expected: "integer",
-                    actual: "string"
-                }.with_path(vec![PathSegment::Index(4)]),
-                SchemaErrorKind::WrongType {
-                    expected: "integer",
-                    actual: "hash"
-                }.with_path(vec![PathSegment::Index(6)])
-            ] }.into()
+            SchemaErrorKind::Multiple {
+                errors: vec![
+                    SchemaErrorKind::WrongType {
+                        expected: "integer",
+                        actual: "string"
+                    }
+                    .with_path(vec![PathSegment::Index(0)]),
+                    SchemaErrorKind::WrongType {
+                        expected: "integer",
+                        actual: "string"
+                    }
+                    .with_path(vec![PathSegment::Index(4)]),
+                    SchemaErrorKind::WrongType {
+                        expected: "integer",
+                        actual: "hash"
+                    }
+                    .with_path(vec![PathSegment::Index(6)])
+                ]
+            }
+            .into()
         );
     }
 

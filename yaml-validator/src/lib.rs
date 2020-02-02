@@ -40,7 +40,7 @@ enum PropertyType<'schema> {
 #[derive(Debug)]
 struct Property<'schema> {
     name: &'schema str,
-    schematype: PropertyType<'schema>,
+    schematype: Option<PropertyType<'schema>>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
@@ -131,13 +131,15 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["name", "type"], &[])?;
+        yaml.strict_contents(&["name"], &["type"])?;
 
         let name = yaml.lookup("name", "string", Yaml::as_str)?;
-
         Ok(Property {
             name,
-            schematype: PropertyType::try_from(yaml).map_err(add_path_name(name))?,
+            schematype: PropertyType::try_from(yaml)
+                .map(Option::from)
+                .map_err(add_path_name(name))
+                .or_else(optional(None))?,
         })
     }
 }
@@ -218,7 +220,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Property<'schema> {
         //        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
         //        yaml.lookup("name", "string", Yaml::as_str)?;
 
-        self.schematype.validate(yaml)
+        if let Some(schematype) = &self.schematype {
+            return schematype.validate(yaml);
+        }
+
+        Ok(())
     }
 }
 
