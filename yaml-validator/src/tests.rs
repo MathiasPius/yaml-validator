@@ -1,4 +1,4 @@
-use crate::error::SchemaErrorKind;
+use crate::error::{PathSegment, SchemaErrorKind};
 use crate::Validate;
 use std::convert::TryFrom;
 use yaml_rust::{Yaml, YamlLoader};
@@ -76,11 +76,11 @@ mod schemaobject {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(vec!["error 1", "items"]),
+                    .with_path(vec![PathSegment::Name("error 1"),PathSegment::Name("items")]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(vec!["error 2", "items"]),
+                    .with_path(vec![PathSegment::Name("error 2"),PathSegment::Name("items")]),
                 ]
             }
             .into()
@@ -231,12 +231,12 @@ mod schemaobject {
                         expected: "string",
                         actual: "integer"
                     }
-                    .with_path(vec!["hello"]),
+                    .with_path(vec![PathSegment::Name("hello")]),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(vec!["world"])
+                    .with_path(vec![PathSegment::Name("world")])
                 ]
             }
             .into()
@@ -272,7 +272,7 @@ mod schemaarray {
                 expected: "hash",
                 actual: "array"
             }
-            .with_path(vec!["items"])
+            .with_path(vec![PathSegment::Name("items")])
             .into(),
         );
     }
@@ -348,7 +348,7 @@ mod schemaarray {
     }
 
     #[test]
-    fn validate_array() {
+    fn validate_untyped_array() {
         SchemaArray::default()
             .validate(&load_simple(
                 r#"
@@ -357,6 +357,47 @@ mod schemaarray {
             "#,
             ))
             .unwrap();
+    }
+
+    #[test]
+    fn validate_typed_array() {
+        let yaml = load_simple(
+            r#"
+        items:
+          type: integer
+        "#,
+        );
+
+        assert_eq!(
+            SchemaArray::try_from(&yaml)
+                .unwrap()
+                .validate(&load_simple(
+                    r#"
+                - abc
+                - 1
+                - 2
+                - 3
+                - def
+                - 4
+                - hello: world
+            "#,
+                ))
+                .unwrap_err(),
+            SchemaErrorKind::Multiple { errors: vec![
+                SchemaErrorKind::WrongType {
+                    expected: "integer",
+                    actual: "string"
+                }.with_path(vec![PathSegment::Index(0)]),
+                SchemaErrorKind::WrongType {
+                    expected: "integer",
+                    actual: "string"
+                }.with_path(vec![PathSegment::Index(4)]),
+                SchemaErrorKind::WrongType {
+                    expected: "integer",
+                    actual: "hash"
+                }.with_path(vec![PathSegment::Index(6)])
+            ] }.into()
+        );
     }
 
     #[test]

@@ -6,7 +6,7 @@ mod error;
 mod tests;
 mod utils;
 
-use error::{add_err_path, optional, SchemaError, SchemaErrorKind};
+use error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
 use utils::YamlUtils;
 
 trait Validate<'yaml, 'schema: 'yaml> {
@@ -60,7 +60,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
                 errors: errs
                     .into_iter()
                     .map(Result::unwrap_err)
-                    .map(add_err_path("items"))
+                    .map(add_path_name("items"))
                     .collect(),
             }
             .into());
@@ -83,11 +83,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
         yaml.lookup("items", "yaml", Option::from)
             .map(|inner| {
                 yaml.lookup("items", "hash", Yaml::as_hash)
-                    .map_err(add_err_path("items"))?;
+                    .map_err(add_path_name("items"))?;
 
                 Ok(SchemaArray {
                     items: Some(Box::new(
-                        PropertyType::try_from(inner).map_err(add_err_path("items"))?,
+                        PropertyType::try_from(inner).map_err(add_path_name("items"))?,
                     )),
                 })
             })
@@ -137,7 +137,7 @@ impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
 
         Ok(Property {
             name,
-            schematype: PropertyType::try_from(yaml).map_err(add_err_path(name))?,
+            schematype: PropertyType::try_from(yaml).map_err(add_path_name(name))?,
         })
     }
 }
@@ -167,11 +167,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
             .map(|schema_item| {
                 let item: &Yaml = yaml
                     .lookup(schema_item.name, "yaml", Option::from)
-                    .map_err(add_err_path(schema_item.name))?;
+                    .map_err(add_path_name(schema_item.name))?;
 
                 schema_item
                     .validate(item)
-                    .map_err(add_err_path(schema_item.name))?;
+                    .map_err(add_path_name(schema_item.name))?;
                 Ok(())
             })
             .filter_map(Result::err)
@@ -189,7 +189,27 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("array", Yaml::as_vec).and_then(|_| Ok(()))
+        let items = yaml.as_type("array", Yaml::as_vec)?;
+
+        if let Some(schema) = &self.items {
+            let mut errors: Vec<SchemaError<'yaml>> = items
+                .iter()
+                .enumerate()
+                .map(|(i, item)| schema.validate(item).map_err(add_path_index(i)))
+                .filter(Result::is_err)
+                .map(Result::unwrap_err)
+                .collect();
+
+            return if errors.is_empty() {
+                Ok(())
+            } else if errors.len() == 1 {
+                Err(errors.pop().unwrap())
+            } else {
+                Err(SchemaErrorKind::Multiple { errors }.into())
+            };
+        }
+
+        Ok(())
     }
 }
 

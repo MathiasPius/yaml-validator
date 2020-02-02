@@ -1,8 +1,14 @@
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum PathSegment<'a> {
+    Name(&'a str),
+    Index(usize),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct State<'a> {
-    path: Vec<&'a str>,
+    path: Vec<PathSegment<'a>>,
 }
 
 impl<'a> Default for State<'a> {
@@ -34,26 +40,33 @@ pub struct SchemaError<'schema> {
     pub state: State<'schema>,
 }
 
-impl<'schema> SchemaError<'schema> {
-    pub fn add_path(mut self, path: &'schema str) -> Self {
-        self.state.path.push(path);
-        self
-    }
-}
-
 impl<'schema> SchemaErrorKind<'schema> {
-    pub fn with_path(self, path: Vec<&'schema str>) -> SchemaError<'schema> {
+    pub fn with_path(self, path: Vec<PathSegment<'schema>>) -> SchemaError<'schema> {
         SchemaError {
             kind: self,
-            state: State { path },
+            state: State {
+                path
+            },
         }
     }
 }
 
-pub fn add_err_path<'schema>(
+pub fn add_path_name<'schema>(
     path: &'schema str,
 ) -> impl Fn(SchemaError<'schema>) -> SchemaError<'schema> {
-    move |err: SchemaError<'schema>| -> SchemaError<'schema> { err.add_path(path) }
+    move |mut err: SchemaError<'schema>| -> SchemaError<'schema> {
+        err.state.path.push(PathSegment::Name(path));
+        err
+    }
+}
+
+pub fn add_path_index<'schema>(
+    index: usize,
+) -> impl Fn(SchemaError<'schema>) -> SchemaError<'schema> {
+    move |mut err: SchemaError<'schema>| -> SchemaError<'schema> {
+        err.state.path.push(PathSegment::Index(index));
+        err
+    }
 }
 
 pub fn optional<'schema, T>(
