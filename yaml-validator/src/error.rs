@@ -13,7 +13,7 @@ pub struct State<'a> {
 
 impl<'a> std::fmt::Display for State<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for segment in &self.path {
+        for segment in self.path.iter().rev() {
             match segment {
                 PathSegment::Name(name) => write!(f, ".{}", name)?,
                 PathSegment::Index(index) => write!(f, "[{}]", index)?,

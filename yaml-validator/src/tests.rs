@@ -34,6 +34,52 @@ mod errors {
             "#.items[1].items[0].items[0]: field 'name' missing\n",
         );
     }
+
+    #[test]
+    fn test_error_path_validation() {
+        let yaml = load_simple(
+            r#"
+            items:
+              - name: test
+                type: integer
+              - name: something
+                type: object
+                items:
+                  - name: level2
+                    type: array
+                    items:
+                      type: object
+                      items:
+                        - name: num
+                          type: integer
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+        let document = load_simple(
+            r#"
+            test: 20
+            something:
+              level2:
+                - num: abc
+                - num: def
+                - num: ghi
+                - num: 10
+                - num: jkl
+            "#,
+        );
+
+        let err = schema.validate(&document).unwrap_err();
+
+        dbg!(&err);
+        debug_assert_eq!(
+            format!("{}", err), r#"#.something.level2[0].num: wrong type, expected integer got string
+#.something.level2[1].num: wrong type, expected integer got string
+#.something.level2[2].num: wrong type, expected integer got string
+#.something.level2[4].num: wrong type, expected integer got string
+"#
+        );
+    }
 }
 
 mod schemaobject {
@@ -105,17 +151,11 @@ mod schemaobject {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(vec![
-                        PathSegment::Name("items"),
-                        PathSegment::Index(1),
-                    ]),
+                    .with_path(vec![PathSegment::Index(1), PathSegment::Name("items"),]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(vec![
-                        PathSegment::Name("items"),
-                        PathSegment::Index(2),
-                    ]),
+                    .with_path(vec![PathSegment::Index(2), PathSegment::Name("items"),]),
                 ]
             }
             .into()

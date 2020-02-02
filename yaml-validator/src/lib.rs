@@ -55,8 +55,8 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             .enumerate()
             .map(|(i, property)| {
                 Property::try_from(property)
-                    .map_err(add_path_name("items"))
                     .map_err(add_path_index(i))
+                    .map_err(add_path_name("items"))
             })
             .partition(Result::is_ok);
 
@@ -118,7 +118,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
-        dbg!(typename);
+
         match typename {
             "object" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
             "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
