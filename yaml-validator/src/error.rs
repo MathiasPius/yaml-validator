@@ -45,6 +45,8 @@ pub enum SchemaErrorKind<'a> {
     UnknownType { unknown_type: &'a str },
     #[error("multiple errors were encountered: {errors:?}")]
     Multiple { errors: Vec<SchemaError<'a>> },
+    #[error("schema '{uri}' references was not found")]
+    UnknownSchema { uri: &'a str },
 }
 
 #[derive(Debug, PartialEq, Eq)]

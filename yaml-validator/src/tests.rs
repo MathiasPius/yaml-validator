@@ -84,6 +84,33 @@ mod errors {
     }
 }
 
+mod context {
+    use super::*;
+    use crate::Context;
+
+    #[test]
+    fn from_yaml() {
+        let yaml = YamlLoader::load_from_str(
+            r#"---
+uri: test
+schema:
+  type: integer
+---
+uri: another
+schema:
+  $ref: test
+"#,
+        )
+        .unwrap();
+
+        let context = Context::try_from(&yaml).unwrap();
+        let schema = context.get_schema("another").unwrap();
+        dbg!(&context);
+        dbg!(&schema);
+        schema.validate(&context, &load_simple("20")).unwrap();
+    }
+}
+
 mod schemaobject {
     use super::*;
     use crate::SchemaObject;
@@ -214,7 +241,9 @@ mod schemaobject {
         let schema = SchemaObject::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("hello world")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("hello world"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "string"
@@ -228,7 +257,9 @@ mod schemaobject {
         let schema = SchemaObject::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("10")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("10"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "integer"
@@ -243,12 +274,15 @@ mod schemaobject {
 
         debug_assert_eq!(
             schema
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
                 - abc
                 - 123
             "#
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -273,12 +307,15 @@ mod schemaobject {
         let schema = SchemaObject::try_from(&yaml).unwrap();
 
         schema
-            .validate(&Context::default(), &load_simple(
-                r#"
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
             hello: world
             world: 20
         "#,
-            ))
+                ),
+            )
             .unwrap();
     }
 
@@ -298,12 +335,15 @@ mod schemaobject {
 
         debug_assert_eq!(
             schema
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
             hello: 20
             world: world
         "#,
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::Multiple {
                 errors: vec![
@@ -404,7 +444,9 @@ mod schemaarray {
         let schema = SchemaArray::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("hello world")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("hello world"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
                 actual: "string"
@@ -418,7 +460,9 @@ mod schemaarray {
         let schema = SchemaArray::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("10")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("10"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
                 actual: "integer"
@@ -430,12 +474,15 @@ mod schemaarray {
     #[test]
     fn validate_untyped_array() {
         SchemaArray::default()
-            .validate(&Context::default(), &load_simple(
-                r#"
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
                 - abc
                 - 123
             "#,
-            ))
+                ),
+            )
             .unwrap();
     }
 
@@ -451,8 +498,10 @@ mod schemaarray {
         debug_assert_eq!(
             SchemaArray::try_from(&yaml)
                 .unwrap()
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
                 - abc
                 - 1
                 - 2
@@ -461,7 +510,8 @@ mod schemaarray {
                 - 4
                 - hello: world
             "#,
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::Multiple {
                 errors: vec![
@@ -491,7 +541,9 @@ mod schemaarray {
         let schema = SchemaArray::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("hello: world")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("hello: world"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
                 actual: "hash"
@@ -507,9 +559,12 @@ mod schemareference {
 
     #[test]
     fn validate_string() {
-        SchemaReference { uri: "test" }
-            .validate(&Context::default(), &load_simple("hello"))
-            .unwrap();
+        assert_eq!(
+            SchemaReference { uri: "test" }
+                .validate(&Context::default(), &load_simple("hello"))
+                .unwrap_err(),
+            SchemaErrorKind::UnknownSchema { uri: "test" }.into()
+        );
     }
 }
 
@@ -566,7 +621,9 @@ mod schemastring {
     #[test]
     fn validate_string() {
         let schema = SchemaString::default();
-        schema.validate(&Context::default(), &load_simple("hello world")).unwrap();
+        schema
+            .validate(&Context::default(), &load_simple("hello world"))
+            .unwrap();
     }
 
     #[test]
@@ -574,7 +631,9 @@ mod schemastring {
         let schema = SchemaString::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("10")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("10"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "string",
                 actual: "integer"
@@ -589,12 +648,15 @@ mod schemastring {
 
         debug_assert_eq!(
             schema
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
                 - abc
                 - 123
             "#
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "string",
@@ -610,11 +672,14 @@ mod schemastring {
 
         debug_assert_eq!(
             schema
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
                 hello: world
             "#
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "string",
@@ -680,7 +745,9 @@ mod schemainteger {
         let schema = SchemaInteger::default();
 
         debug_assert_eq!(
-            schema.validate(&Context::default(), &load_simple("hello world")).unwrap_err(),
+            schema
+                .validate(&Context::default(), &load_simple("hello world"))
+                .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "integer",
                 actual: "string"
@@ -693,7 +760,9 @@ mod schemainteger {
     fn validate_integer() {
         let schema = SchemaInteger::default();
 
-        schema.validate(&Context::default(), &load_simple("10")).unwrap();
+        schema
+            .validate(&Context::default(), &load_simple("10"))
+            .unwrap();
     }
 
     #[test]
@@ -702,12 +771,15 @@ mod schemainteger {
 
         debug_assert_eq!(
             schema
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
                 - abc
                 - 123
             "#
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "integer",
@@ -723,11 +795,14 @@ mod schemainteger {
 
         debug_assert_eq!(
             schema
-                .validate(&Context::default(), &load_simple(
-                    r#"
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
                 hello: world
             "#
-                ))
+                    )
+                )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "integer",
