@@ -20,6 +20,8 @@ pub enum SchemaErrorKind<'schema> {
     },
     #[error("field {field} missing")]
     FieldMissing { field: &'schema str },
+    #[error("field {field} is not specified in the schema")]
+    ExtraField { field: &'schema str },
     #[error("unknown type specified: {unknown_type}")]
     UnknownType { unknown_type: &'schema str },
     #[error("multiple errors were encountered: {errors:?}")]
@@ -59,7 +61,7 @@ pub fn optional<'schema, T>(
 ) -> impl FnOnce(SchemaError<'schema>) -> Result<T, SchemaError<'schema>> {
     move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
         match err.kind {
-            SchemaErrorKind::FieldMissing { field: _ } => Ok(default),
+            SchemaErrorKind::FieldMissing { .. } => Ok(default),
             _ => Err(err),
         }
     }

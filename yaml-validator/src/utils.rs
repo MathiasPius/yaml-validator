@@ -1,6 +1,6 @@
 use crate::error::{SchemaError, SchemaErrorKind};
 use std::ops::Index;
-use yaml_rust::Yaml;
+use yaml_rust::{yaml::Hash, Yaml};
 
 pub trait YamlUtils {
     fn type_to_str(&self) -> &'static str;
@@ -21,6 +21,12 @@ pub trait YamlUtils {
     ) -> Result<T, SchemaError<'schema>>
     where
         F: FnOnce(&'schema Yaml) -> Option<T>;
+
+    fn strict_contents<'schema>(
+        &'schema self,
+        required: &[&'schema str],
+        optional: &[&'schema str],
+    ) -> Result<&Hash, SchemaError<'schema>>;
 }
 
 impl YamlUtils for Yaml {
@@ -69,6 +75,36 @@ impl YamlUtils for Yaml {
             Yaml::BadValue => Err(SchemaErrorKind::FieldMissing { field }.into()),
             Yaml::Null => Err(SchemaErrorKind::FieldMissing { field }.into()),
             content => content.as_type(expected, cast),
+        }
+    }
+
+    fn strict_contents<'schema>(
+        &'schema self,
+        required: &[&'schema str],
+        optional: &[&'schema str],
+    ) -> Result<&Hash, SchemaError<'schema>> {
+        let hash = self.as_type("hash", Yaml::as_hash)?;
+
+        let missing = required
+            .iter()
+            .filter(|field| !hash.contains_key(&Yaml::String((**field).to_string())))
+            .map(|field| SchemaErrorKind::FieldMissing { field: *field });
+
+        let extra = hash
+            .keys()
+            .map(|field| field.as_type("string", Yaml::as_str).unwrap())
+            .filter(|field| !required.contains(&field) && !optional.contains(&field))
+            .map(|field| SchemaErrorKind::ExtraField { field });
+
+        let mut errors: Vec<SchemaError<'schema>> =
+            missing.chain(extra).map(SchemaErrorKind::into).collect();
+
+        if errors.is_empty() {
+            Ok(hash)
+        } else if errors.len() == 1 {
+            Err(errors.pop().unwrap())
+        } else {
+            Err(SchemaErrorKind::Multiple { errors }.into())
         }
     }
 }

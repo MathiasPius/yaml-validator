@@ -46,7 +46,7 @@ struct Property<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.as_type("hash", Yaml::as_hash)?;
+        yaml.strict_contents(&["items"], &[])?;
 
         let items = yaml.lookup("items", "array", Yaml::as_vec)?;
 
@@ -75,13 +75,16 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.as_type("hash", Yaml::as_hash)?;
+        yaml.strict_contents(&[], &["items"])?;
 
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
         // to be passed into PropertyType::try_from
         yaml.lookup("items", "yaml", Option::from)
             .map(|inner| {
+                yaml.lookup("items", "hash", Yaml::as_hash)
+                    .map_err(add_err_path("items"))?;
+
                 Ok(SchemaArray {
                     items: Some(Box::new(
                         PropertyType::try_from(inner).map_err(add_err_path("items"))?,
@@ -113,7 +116,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.as_type("hash", Yaml::as_hash)?;
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
 
         match typename {
@@ -129,7 +131,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.as_type("hash", Yaml::as_hash)?;
+        yaml.strict_contents(&["name", "type"], &[])?;
 
         let name = yaml.lookup("name", "string", Yaml::as_str)?;
 

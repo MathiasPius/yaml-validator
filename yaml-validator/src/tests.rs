@@ -23,6 +23,22 @@ mod schemaobject {
     }
 
     #[test]
+    fn extra_fields() {
+        assert_eq!(
+            SchemaObject::try_from(&load_simple(
+                r#"
+            items:
+              - name: something
+                type: hello
+            extra: extra field test
+        "#,
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::ExtraField { field: "extra" }.into(),
+        );
+    }
+
+    #[test]
     fn malformed_items() {
         assert_eq!(
             SchemaObject::try_from(&load_simple(
