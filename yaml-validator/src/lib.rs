@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
@@ -15,8 +15,19 @@ trait Validate<'yaml, 'schema: 'yaml> {
 }
 
 #[derive(Debug, Default)]
+struct Context<'schema> {
+    schemas: BTreeMap<&'schema str, SchemaObject<'schema>>,
+}
+
+#[derive(Debug)]
+struct Schema<'schema> {
+    uri: &'schema str,
+    schema: PropertyType<'schema>,
+}
+
+#[derive(Debug, Default)]
 struct SchemaObject<'schema> {
-    items: HashMap<&'schema str, PropertyType<'schema>>,
+    items: BTreeMap<&'schema str, PropertyType<'schema>>,
 }
 
 #[derive(Debug, Default)]
@@ -30,12 +41,18 @@ struct SchemaString {}
 #[derive(Debug, Default)]
 struct SchemaInteger {}
 
+#[derive(Debug, Default)]
+struct SchemaReference<'schema> {
+    uri: &'schema str,
+}
+
 #[derive(Debug)]
 enum PropertyType<'schema> {
     Object(SchemaObject<'schema>),
     Array(SchemaArray<'schema>),
     String(SchemaString),
     Integer(SchemaInteger),
+    Reference(SchemaReference<'schema>),
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
@@ -69,6 +86,18 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
         Ok(SchemaObject {
             items: items.into_iter().map(Result::unwrap).collect(),
         })
+    }
+}
+
+impl<'schema> TryFrom<&'schema Yaml> for Schema<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        yaml.strict_contents(&["uri", "schema"], &[])?;
+
+        let uri = yaml.lookup("uri", "string", Yaml::as_str)?;
+        let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)?;
+
+        Ok(Schema { uri, schema })
     }
 }
 
@@ -116,6 +145,15 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        let reference = yaml
+            .lookup("$ref", "string", Yaml::as_str)
+            .map(Option::from)
+            .or_else(optional(None))?;
+
+        if let Some(uri) = reference {
+            return Ok(PropertyType::Reference(SchemaReference { uri }));
+        }
+
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
 
         match typename {
@@ -125,6 +163,12 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
         }
+    }
+}
+
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReference<'schema> {
+    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
     }
 }
 
@@ -142,7 +186,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
+        yaml.as_type("hash", Yaml::as_hash)?;
 
         let items: Vec<&'schema str> = self.items.keys().copied().collect();
         yaml.strict_contents(&items, &[])?;
@@ -204,6 +248,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::String(p) => p.validate(yaml),
             PropertyType::Object(p) => p.validate(yaml),
             PropertyType::Array(p) => p.validate(yaml),
+            PropertyType::Reference(p) => p.validate(yaml),
         }
     }
 }

@@ -501,6 +501,18 @@ mod schemaarray {
     }
 }
 
+mod schemareference {
+    use super::*;
+    use crate::SchemaReference;
+
+    #[test]
+    fn validate_string() {
+        SchemaReference { uri: "test" }
+            .validate(&load_simple("hello"))
+            .unwrap();
+    }
+}
+
 mod schemastring {
     use super::*;
     use crate::SchemaString;

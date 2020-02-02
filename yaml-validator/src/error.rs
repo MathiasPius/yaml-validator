@@ -84,27 +84,21 @@ impl<'a> SchemaErrorKind<'a> {
     }
 }
 
-pub fn add_path_name<'a>(
-    path: &'a str,
-) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+pub fn add_path_name<'a>(path: &'a str) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
     move |mut err: SchemaError<'a>| -> SchemaError<'a> {
         err.state.path.push(PathSegment::Name(path));
         err
     }
 }
 
-pub fn add_path_index<'a>(
-    index: usize,
-) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+pub fn add_path_index<'a>(index: usize) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
     move |mut err: SchemaError<'a>| -> SchemaError<'a> {
         err.state.path.push(PathSegment::Index(index));
         err
     }
 }
 
-pub fn optional<'a, T>(
-    default: T,
-) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
+pub fn optional<'a, T>(default: T) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
     move |err: SchemaError<'a>| -> Result<T, SchemaError<'a>> {
         match err.kind {
             SchemaErrorKind::FieldMissing { .. } => Ok(default),
