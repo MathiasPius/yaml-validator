@@ -60,11 +60,11 @@ mod schemaobject {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .into(),
+                    .with_path(vec!["error 1"]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .into()
+                    .with_path(vec!["error 2"]),
                 ]
             }
             .into()

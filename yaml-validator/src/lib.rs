@@ -100,9 +100,11 @@ impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.as_type("hash", Yaml::as_hash)?;
 
+        let name = yaml.lookup("name", "string", Yaml::as_str)?;
+
         Ok(Property {
-            name: yaml.lookup("name", "string", Yaml::as_str)?,
-            schematype: PropertyType::try_from(yaml)?,
+            name,
+            schematype: PropertyType::try_from(yaml).map_err(|e| e.add_path(name))?,
         })
     }
 }

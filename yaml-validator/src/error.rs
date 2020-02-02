@@ -32,6 +32,22 @@ pub struct SchemaError<'schema> {
     pub state: State<'schema>,
 }
 
+impl<'schema> SchemaError<'schema> {
+    pub fn add_path(mut self, path: &'schema str) -> Self {
+        self.state.path.push(path);
+        self
+    }
+}
+
+impl<'schema> SchemaErrorKind<'schema> {
+    pub fn with_path(self, path: Vec<&'schema str>) -> SchemaError<'schema> {
+        SchemaError {
+            kind: self,
+            state: State { path },
+        }
+    }
+}
+
 impl<'schema> Into<SchemaError<'schema>> for SchemaErrorKind<'schema> {
     fn into(self) -> SchemaError<'schema> {
         SchemaError {
