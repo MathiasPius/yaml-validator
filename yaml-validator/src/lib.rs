@@ -6,7 +6,7 @@ mod error;
 mod tests;
 mod utils;
 
-use error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
+use error::{add_path_index, add_path_name, incomplete, optional, SchemaError, SchemaErrorKind};
 use utils::YamlUtils;
 
 trait Validate<'yaml, 'schema: 'yaml> {
@@ -46,22 +46,23 @@ struct Property<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &[])?;
+        yaml.strict_contents(&["items"], &["name", "type"])?;
 
         let items = yaml.lookup("items", "array", Yaml::as_vec)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
             .iter()
-            .map(Property::try_from)
+            .enumerate()
+            .map(|(i, property)| {
+                Property::try_from(property)
+                    .map_err(add_path_name("items"))
+                    .map_err(add_path_index(i))
+            })
             .partition(Result::is_ok);
 
         if !errs.is_empty() {
             return Err(SchemaErrorKind::Multiple {
-                errors: errs
-                    .into_iter()
-                    .map(Result::unwrap_err)
-                    .map(add_path_name("items"))
-                    .collect(),
+                errors: errs.into_iter().map(Result::unwrap_err).collect(),
             }
             .into());
         }
@@ -75,7 +76,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["items"])?;
+        yaml.strict_contents(&[], &["items", "name", "type"])?;
 
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
@@ -117,9 +118,9 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
-
+        dbg!(typename);
         match typename {
-            "hash" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
+            "object" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
             "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
             "integer" => Ok(PropertyType::Integer(SchemaInteger::try_from(yaml)?)),
             "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
@@ -131,14 +132,15 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["name"], &["type"])?;
+        yaml.strict_contents(&["name"], &["type"])
+            .map(Option::from)
+            .or_else(incomplete(None))?;
 
         let name = yaml.lookup("name", "string", Yaml::as_str)?;
         Ok(Property {
             name,
             schematype: PropertyType::try_from(yaml)
                 .map(Option::from)
-                .map_err(add_path_name(name))
                 .or_else(optional(None))?,
         })
     }

@@ -7,6 +7,35 @@ fn load_simple(source: &'static str) -> Yaml {
     YamlLoader::load_from_str(source).unwrap().remove(0)
 }
 
+mod errors {
+    use super::*;
+    use crate::*;
+    #[test]
+    fn test_error_path() {
+        let yaml = load_simple(
+            r#"
+            items:
+              - name: test
+                type: integer
+              - name: something
+                type: object
+                items:
+                  - name: level2
+                    type: object
+                    items:
+                      - type: hello
+            "#,
+        );
+
+        let err = SchemaObject::try_from(&yaml).unwrap_err();
+
+        debug_assert_eq!(
+            format!("{}", err),
+            "#.items[1].items[0].items[0]: field 'name' missing\n",
+        );
+    }
+}
+
 mod schemaobject {
     use super::*;
     use crate::SchemaObject;
@@ -24,7 +53,7 @@ mod schemaobject {
 
     #[test]
     fn extra_fields() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaObject::try_from(&load_simple(
                 r#"
             items:
@@ -40,7 +69,7 @@ mod schemaobject {
 
     #[test]
     fn malformed_items() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaObject::try_from(&load_simple(
                 r#"
             items:
@@ -58,7 +87,7 @@ mod schemaobject {
 
     #[test]
     fn multiple_errors() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaObject::try_from(&load_simple(
                 r#"
             items:
@@ -77,15 +106,15 @@ mod schemaobject {
                         unknown_type: "unknown1"
                     }
                     .with_path(vec![
-                        PathSegment::Name("error 1"),
-                        PathSegment::Name("items")
+                        PathSegment::Name("items"),
+                        PathSegment::Index(1),
                     ]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
                     .with_path(vec![
-                        PathSegment::Name("error 2"),
-                        PathSegment::Name("items")
+                        PathSegment::Name("items"),
+                        PathSegment::Index(2),
                     ]),
                 ]
             }
@@ -95,7 +124,7 @@ mod schemaobject {
 
     #[test]
     fn from_string() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaObject::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -107,7 +136,7 @@ mod schemaobject {
 
     #[test]
     fn from_integer() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaObject::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -119,7 +148,7 @@ mod schemaobject {
 
     #[test]
     fn from_array() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaObject::try_from(&load_simple(
                 r#"
                 - hello
@@ -139,7 +168,7 @@ mod schemaobject {
     fn validate_string() {
         let schema = SchemaObject::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -153,7 +182,7 @@ mod schemaobject {
     fn validate_integer() {
         let schema = SchemaObject::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -167,7 +196,7 @@ mod schemaobject {
     fn validate_array() {
         let schema = SchemaObject::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema
                 .validate(&load_simple(
                     r#"
@@ -222,7 +251,7 @@ mod schemaobject {
 
         let schema = SchemaObject::try_from(&yaml).unwrap();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema
                 .validate(&load_simple(
                     r#"
@@ -266,7 +295,7 @@ mod schemaarray {
 
     #[test]
     fn malformed_items() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaArray::try_from(&load_simple(
                 r#"
             items:
@@ -285,7 +314,7 @@ mod schemaarray {
 
     #[test]
     fn from_string() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaArray::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -297,7 +326,7 @@ mod schemaarray {
 
     #[test]
     fn from_integer() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaArray::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -309,7 +338,7 @@ mod schemaarray {
 
     #[test]
     fn from_array() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaArray::try_from(&load_simple(
                 r#"
                 - hello
@@ -329,7 +358,7 @@ mod schemaarray {
     fn validate_string() {
         let schema = SchemaArray::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
@@ -343,7 +372,7 @@ mod schemaarray {
     fn validate_integer() {
         let schema = SchemaArray::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
@@ -374,7 +403,7 @@ mod schemaarray {
         "#,
         );
 
-        assert_eq!(
+        debug_assert_eq!(
             SchemaArray::try_from(&yaml)
                 .unwrap()
                 .validate(&load_simple(
@@ -416,7 +445,7 @@ mod schemaarray {
     fn validate_hash() {
         let schema = SchemaArray::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("hello: world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
@@ -437,7 +466,7 @@ mod schemastring {
 
     #[test]
     fn from_string() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaString::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -449,7 +478,7 @@ mod schemastring {
 
     #[test]
     fn from_integer() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaString::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -461,7 +490,7 @@ mod schemastring {
 
     #[test]
     fn from_array() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaString::try_from(&load_simple(
                 r#"
                 - hello
@@ -487,7 +516,7 @@ mod schemastring {
     fn validate_integer() {
         let schema = SchemaString::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "string",
@@ -501,7 +530,7 @@ mod schemastring {
     fn validate_array() {
         let schema = SchemaString::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema
                 .validate(&load_simple(
                     r#"
@@ -522,7 +551,7 @@ mod schemastring {
     fn validate_hash() {
         let schema = SchemaString::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema
                 .validate(&load_simple(
                     r#"
@@ -549,7 +578,7 @@ mod schemainteger {
 
     #[test]
     fn from_string() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaInteger::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -561,7 +590,7 @@ mod schemainteger {
 
     #[test]
     fn from_integer() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaInteger::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -573,7 +602,7 @@ mod schemainteger {
 
     #[test]
     fn from_array() {
-        assert_eq!(
+        debug_assert_eq!(
             SchemaInteger::try_from(&load_simple(
                 r#"
                 - hello
@@ -593,7 +622,7 @@ mod schemainteger {
     fn validate_string() {
         let schema = SchemaInteger::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema.validate(&load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "integer",
@@ -614,7 +643,7 @@ mod schemainteger {
     fn validate_array() {
         let schema = SchemaInteger::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema
                 .validate(&load_simple(
                     r#"
@@ -635,7 +664,7 @@ mod schemainteger {
     fn validate_hash() {
         let schema = SchemaInteger::default();
 
-        assert_eq!(
+        debug_assert_eq!(
             schema
                 .validate(&load_simple(
                     r#"

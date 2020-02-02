@@ -11,6 +11,19 @@ pub struct State<'a> {
     path: Vec<PathSegment<'a>>,
 }
 
+impl<'a> std::fmt::Display for State<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for segment in &self.path {
+            match segment {
+                PathSegment::Name(name) => write!(f, ".{}", name)?,
+                PathSegment::Index(index) => write!(f, "[{}]", index)?,
+            };
+        }
+
+        Ok(())
+    }
+}
+
 impl<'a> Default for State<'a> {
     fn default() -> Self {
         State { path: vec![] }
@@ -24,9 +37,9 @@ pub enum SchemaErrorKind<'schema> {
         expected: &'static str,
         actual: &'schema str,
     },
-    #[error("field {field} missing")]
+    #[error("field '{field}' missing")]
     FieldMissing { field: &'schema str },
-    #[error("field {field} is not specified in the schema")]
+    #[error("field '{field}' is not specified in the schema")]
     ExtraField { field: &'schema str },
     #[error("unknown type specified: {unknown_type}")]
     UnknownType { unknown_type: &'schema str },
@@ -38,6 +51,27 @@ pub enum SchemaErrorKind<'schema> {
 pub struct SchemaError<'schema> {
     pub kind: SchemaErrorKind<'schema>,
     pub state: State<'schema>,
+}
+
+impl<'schema> SchemaError<'schema> {
+    fn flatten(&self, fmt: &mut std::fmt::Formatter<'_>, root: String) -> std::fmt::Result {
+        match &self.kind {
+            SchemaErrorKind::Multiple { errors } => {
+                for err in errors {
+                    err.flatten(fmt, format!("{}{}", root, self.state))?;
+                }
+            }
+            err => writeln!(fmt, "{}{}: {}", root, self.state, err)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> std::fmt::Display for SchemaError<'a> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.flatten(fmt, "#".to_string())
+    }
 }
 
 impl<'schema> SchemaErrorKind<'schema> {
@@ -73,6 +107,17 @@ pub fn optional<'schema, T>(
     move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
         match err.kind {
             SchemaErrorKind::FieldMissing { .. } => Ok(default),
+            _ => Err(err),
+        }
+    }
+}
+
+pub fn incomplete<'schema, T>(
+    default: T,
+) -> impl FnOnce(SchemaError<'schema>) -> Result<T, SchemaError<'schema>> {
+    move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
+        match err.kind {
+            SchemaErrorKind::ExtraField { .. } => Ok(default),
             _ => Err(err),
         }
     }
