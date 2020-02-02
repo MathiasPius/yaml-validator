@@ -48,6 +48,23 @@ impl<'schema> SchemaErrorKind<'schema> {
     }
 }
 
+pub fn add_err_path<'schema>(
+    path: &'schema str,
+) -> impl Fn(SchemaError<'schema>) -> SchemaError<'schema> {
+    move |err: SchemaError<'schema>| -> SchemaError<'schema> { err.add_path(path) }
+}
+
+pub fn optional<'schema, T>(
+    default: T,
+) -> impl FnOnce(SchemaError<'schema>) -> Result<T, SchemaError<'schema>> {
+    move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
+        match err.kind {
+            SchemaErrorKind::FieldMissing { field: _ } => Ok(default),
+            _ => Err(err),
+        }
+    }
+}
+
 impl<'schema> Into<SchemaError<'schema>> for SchemaErrorKind<'schema> {
     fn into(self) -> SchemaError<'schema> {
         SchemaError {

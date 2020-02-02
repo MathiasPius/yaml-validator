@@ -60,11 +60,11 @@ mod schemaobject {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(vec!["error 1"]),
+                    .with_path(vec!["error 1", "items"]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(vec!["error 2"]),
+                    .with_path(vec!["error 2", "items"]),
                 ]
             }
             .into()
@@ -165,6 +165,137 @@ mod schemaobject {
     #[test]
     fn validate_hash() {
         let schema = SchemaObject::default();
+
+        schema.validate(&load_simple("hello: world")).unwrap();
+    }
+}
+
+mod schemaarray {
+    use super::*;
+    use crate::SchemaArray;
+    #[test]
+    fn from_yaml() {
+        SchemaArray::try_from(&load_simple(
+            r#"
+            items:
+              type: string
+        "#,
+        ))
+        .unwrap();
+    }
+
+    #[test]
+    fn malformed_items() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple(
+                r#"
+            items:
+              - type: string
+        "#,
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "array"
+            }.with_path(vec!["items"])
+            .into(),
+        );
+    }
+
+    #[test]
+    fn from_string() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple("world")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "string"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn from_integer() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple("10")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "integer"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn from_array() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple(
+                r#"
+                - hello
+                - world
+            "#
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "array"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_string() {
+        let schema = SchemaArray::default();
+
+        assert_eq!(
+            schema.validate(&load_simple("hello world")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "string"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_integer() {
+        let schema = SchemaArray::default();
+
+        assert_eq!(
+            schema.validate(&load_simple("10")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "integer"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_array() {
+        let schema = SchemaArray::default();
+
+        assert_eq!(
+            schema
+                .validate(&load_simple(
+                    r#"
+                - abc
+                - 123
+            "#
+                ))
+                .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "array"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_hash() {
+        let schema = SchemaArray::default();
 
         schema.validate(&load_simple("hello: world")).unwrap();
     }

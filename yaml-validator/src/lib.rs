@@ -6,7 +6,7 @@ mod error;
 mod tests;
 mod utils;
 
-use error::{SchemaError, SchemaErrorKind};
+use error::{add_err_path, optional, SchemaError, SchemaErrorKind};
 use utils::YamlUtils;
 
 trait Validate {
@@ -19,6 +19,11 @@ struct SchemaObject<'schema> {
 }
 
 #[derive(Debug, Default)]
+struct SchemaArray<'schema> {
+    items: Option<Box<PropertyType<'schema>>>,
+}
+
+#[derive(Debug, Default)]
 struct SchemaString {}
 
 #[derive(Debug, Default)]
@@ -27,6 +32,7 @@ struct SchemaInteger {}
 #[derive(Debug)]
 enum PropertyType<'schema> {
     Object(SchemaObject<'schema>),
+    Array(SchemaArray<'schema>),
     String(SchemaString),
     Integer(SchemaInteger),
 }
@@ -51,7 +57,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 
         if !errs.is_empty() {
             return Err(SchemaErrorKind::Multiple {
-                errors: errs.into_iter().map(Result::unwrap_err).collect(),
+                errors: errs
+                    .into_iter()
+                    .map(Result::unwrap_err)
+                    .map(add_err_path("items"))
+                    .collect(),
             }
             .into());
         }
@@ -59,6 +69,23 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
         Ok(SchemaObject {
             items: items.into_iter().map(Result::unwrap).collect(),
         })
+    }
+}
+
+impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        yaml.as_type("hash", Yaml::as_hash)?;
+
+        yaml.lookup("items", "yaml", Option::from)
+            .map(|inner| {
+                Ok(SchemaArray {
+                    items: Some(Box::new(
+                        PropertyType::try_from(inner).map_err(add_err_path("items"))?,
+                    )),
+                })
+            })
+            .or_else(optional(Ok(SchemaArray { items: None })))?
     }
 }
 
@@ -90,6 +117,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             "hash" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
             "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
             "integer" => Ok(PropertyType::Integer(SchemaInteger::try_from(yaml)?)),
+            "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
         }
     }
@@ -104,7 +132,7 @@ impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
 
         Ok(Property {
             name,
-            schematype: PropertyType::try_from(yaml).map_err(|e| e.add_path(name))?,
+            schematype: PropertyType::try_from(yaml).map_err(add_err_path(name))?,
         })
     }
 }
@@ -127,6 +155,12 @@ impl<'schema> Validate for SchemaObject<'schema> {
     }
 }
 
+impl<'schema> Validate for SchemaArray<'schema> {
+    fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))
+    }
+}
+
 impl<'schema> Validate for Property<'schema> {
     fn validate<'yaml>(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
@@ -142,6 +176,7 @@ impl<'schema> Validate for PropertyType<'schema> {
             PropertyType::Integer(p) => p.validate(yaml),
             PropertyType::String(p) => p.validate(yaml),
             PropertyType::Object(p) => p.validate(yaml),
+            PropertyType::Array(p) => p.validate(yaml),
         }
     }
 }
