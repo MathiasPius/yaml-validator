@@ -62,8 +62,10 @@ mod errors {
             something:
               level2:
                 - num: abc
-                - num: def
-                - num: ghi
+                - num:
+                    hash: value
+                - num:
+                    - array: hello
                 - num: 10
                 - num: jkl
             "#,
@@ -71,11 +73,10 @@ mod errors {
 
         let err = schema.validate(&document).unwrap_err();
 
-        dbg!(&err);
         debug_assert_eq!(
             format!("{}", err), r#"#.something.level2[0].num: wrong type, expected integer got string
-#.something.level2[1].num: wrong type, expected integer got string
-#.something.level2[2].num: wrong type, expected integer got string
+#.something.level2[1].num: wrong type, expected integer got hash
+#.something.level2[2].num: wrong type, expected integer got array
 #.something.level2[4].num: wrong type, expected integer got string
 "#
         );
