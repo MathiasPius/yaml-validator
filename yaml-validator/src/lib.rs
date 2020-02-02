@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
@@ -6,7 +7,7 @@ mod error;
 mod tests;
 mod utils;
 
-use error::{add_path_index, add_path_name, incomplete, optional, SchemaError, SchemaErrorKind};
+use error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
 use utils::YamlUtils;
 
 trait Validate<'yaml, 'schema: 'yaml> {
@@ -15,7 +16,7 @@ trait Validate<'yaml, 'schema: 'yaml> {
 
 #[derive(Debug, Default)]
 struct SchemaObject<'schema> {
-    items: Vec<Property<'schema>>,
+    items: HashMap<&'schema str, PropertyType<'schema>>,
 }
 
 #[derive(Debug, Default)]
@@ -37,34 +38,32 @@ enum PropertyType<'schema> {
     Integer(SchemaInteger),
 }
 
-#[derive(Debug)]
-struct Property<'schema> {
-    name: &'schema str,
-    schematype: Option<PropertyType<'schema>>,
-}
-
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.strict_contents(&["items"], &["name", "type"])?;
 
-        let items = yaml.lookup("items", "array", Yaml::as_vec)?;
+        let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
             .iter()
-            .enumerate()
-            .map(|(i, property)| {
-                Property::try_from(property)
-                    .map_err(add_path_index(i))
+            .map(|property| {
+                let name = property.0.as_type("string", Yaml::as_str)?;
+                PropertyType::try_from(property.1)
+                    .map_err(add_path_name(name))
                     .map_err(add_path_name("items"))
+                    .map(|prop| (name, prop))
             })
             .partition(Result::is_ok);
 
         if !errs.is_empty() {
-            return Err(SchemaErrorKind::Multiple {
-                errors: errs.into_iter().map(Result::unwrap_err).collect(),
+            let mut errors: Vec<SchemaError<'schema>> =
+                errs.into_iter().map(Result::unwrap_err).collect();
+            if errors.len() == 1 {
+                return Err(errors.pop().unwrap());
+            } else {
+                return Err(SchemaErrorKind::Multiple { errors }.into());
             }
-            .into());
         }
 
         Ok(SchemaObject {
@@ -129,23 +128,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     }
 }
 
-impl<'schema> TryFrom<&'schema Yaml> for Property<'schema> {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["name"], &["type"])
-            .map(Option::from)
-            .or_else(incomplete(None))?;
-
-        let name = yaml.lookup("name", "string", Yaml::as_str)?;
-        Ok(Property {
-            name,
-            schematype: PropertyType::try_from(yaml)
-                .map(Option::from)
-                .or_else(optional(None))?,
-        })
-    }
-}
-
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
@@ -162,20 +144,18 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
 
-        let items: Vec<&'schema str> = self.items.iter().map(|item| item.name).collect();
+        let items: Vec<&'schema str> = self.items.keys().copied().collect();
         yaml.strict_contents(&items, &[])?;
 
         let mut errors: Vec<SchemaError<'yaml>> = self
             .items
             .iter()
-            .map(|schema_item| {
+            .map(|(name, schema_item)| {
                 let item: &Yaml = yaml
-                    .lookup(schema_item.name, "yaml", Option::from)
-                    .map_err(add_path_name(schema_item.name))?;
+                    .lookup(name, "yaml", Option::from)
+                    .map_err(add_path_name(name))?;
 
-                schema_item
-                    .validate(item)
-                    .map_err(add_path_name(schema_item.name))?;
+                schema_item.validate(item).map_err(add_path_name(name))?;
                 Ok(())
             })
             .filter_map(Result::err)
@@ -211,16 +191,6 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
             } else {
                 Err(SchemaErrorKind::Multiple { errors }.into())
             };
-        }
-
-        Ok(())
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Property<'schema> {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        if let Some(schematype) = &self.schematype {
-            return schematype.validate(yaml);
         }
 
         Ok(())

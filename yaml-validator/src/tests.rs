@@ -15,15 +15,15 @@ mod errors {
         let yaml = load_simple(
             r#"
             items:
-              - name: test
+              test:
                 type: integer
-              - name: something
+              something:
                 type: object
                 items:
-                  - name: level2
+                  level2:
                     type: object
                     items:
-                      - type: hello
+                      leaf: hello
             "#,
         );
 
@@ -31,7 +31,7 @@ mod errors {
 
         debug_assert_eq!(
             format!("{}", err),
-            "#.items[1].items[0].items[0]: field 'name' missing\n",
+            "#.items.something.items.level2.items.leaf: field \'type\' missing\n",
         );
     }
 
@@ -40,17 +40,17 @@ mod errors {
         let yaml = load_simple(
             r#"
             items:
-              - name: test
+              test:
                 type: integer
-              - name: something
+              something:
                 type: object
                 items:
-                  - name: level2
+                  level2:
                     type: array
                     items:
                       type: object
                       items:
-                        - name: num
+                        num:
                           type: integer
             "#,
         );
@@ -74,7 +74,8 @@ mod errors {
         let err = schema.validate(&document).unwrap_err();
 
         debug_assert_eq!(
-            format!("{}", err), r#"#.something.level2[0].num: wrong type, expected integer got string
+            format!("{}", err),
+            r#"#.something.level2[0].num: wrong type, expected integer got string
 #.something.level2[1].num: wrong type, expected integer got hash
 #.something.level2[2].num: wrong type, expected integer got array
 #.something.level2[4].num: wrong type, expected integer got string
@@ -91,7 +92,7 @@ mod schemaobject {
         SchemaObject::try_from(&load_simple(
             r#"
             items:
-              - name: something
+              something:
                 type: string
         "#,
         ))
@@ -104,7 +105,7 @@ mod schemaobject {
             SchemaObject::try_from(&load_simple(
                 r#"
             items:
-              - name: something
+              something:
                 type: hello
             extra: extra field test
         "#,
@@ -124,11 +125,8 @@ mod schemaobject {
         "#,
             ))
             .unwrap_err(),
-            SchemaErrorKind::WrongType {
-                expected: "array",
-                actual: "hash"
-            }
-            .into(),
+            SchemaErrorKind::FieldMissing { field: "type" }
+                .with_path(vec![PathSegment::Name("hello"), PathSegment::Name("items")]),
         );
     }
 
@@ -138,11 +136,11 @@ mod schemaobject {
             SchemaObject::try_from(&load_simple(
                 r#"
             items:
-              - name: valid
+              valid:
                 type: string
-              - name: error 1
+              error 1:
                 type: unknown1
-              - name: error 2
+              error 2:
                 type: unknown2
         "#,
             ))
@@ -152,11 +150,17 @@ mod schemaobject {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(vec![PathSegment::Index(1), PathSegment::Name("items"),]),
+                    .with_path(vec![
+                        PathSegment::Name("error 1"),
+                        PathSegment::Name("items"),
+                    ]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(vec![PathSegment::Index(2), PathSegment::Name("items"),]),
+                    .with_path(vec![
+                        PathSegment::Name("error 2"),
+                        PathSegment::Name("items"),
+                    ]),
                 ]
             }
             .into()
@@ -259,9 +263,9 @@ mod schemaobject {
         let yaml = load_simple(
             r#"
             items:
-              - name: hello
+              hello:
                 type: string
-              - name: world
+              world:
                 type: integer
             "#,
         );
@@ -283,9 +287,9 @@ mod schemaobject {
         let yaml = load_simple(
             r#"
             items:
-              - name: hello
+              hello:
                 type: string
-              - name: world
+              world:
                 type: integer
             "#,
         );
