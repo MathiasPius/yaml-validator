@@ -217,9 +217,6 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Property<'schema> {
     fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
-        //        yaml.as_type("hash", Yaml::as_hash).and_then(|_| Ok(()))?;
-        //        yaml.lookup("name", "string", Yaml::as_str)?;
-
         if let Some(schematype) = &self.schematype {
             return schematype.validate(yaml);
         }
