@@ -31,29 +31,29 @@ impl<'a> Default for State<'a> {
 }
 
 #[derive(Error, Debug, PartialEq, Eq)]
-pub enum SchemaErrorKind<'schema> {
+pub enum SchemaErrorKind<'a> {
     #[error("wrong type, expected {expected} got {actual}")]
     WrongType {
         expected: &'static str,
-        actual: &'schema str,
+        actual: &'a str,
     },
     #[error("field '{field}' missing")]
-    FieldMissing { field: &'schema str },
+    FieldMissing { field: &'a str },
     #[error("field '{field}' is not specified in the schema")]
-    ExtraField { field: &'schema str },
+    ExtraField { field: &'a str },
     #[error("unknown type specified: {unknown_type}")]
-    UnknownType { unknown_type: &'schema str },
+    UnknownType { unknown_type: &'a str },
     #[error("multiple errors were encountered: {errors:?}")]
-    Multiple { errors: Vec<SchemaError<'schema>> },
+    Multiple { errors: Vec<SchemaError<'a>> },
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct SchemaError<'schema> {
-    pub kind: SchemaErrorKind<'schema>,
-    pub state: State<'schema>,
+pub struct SchemaError<'a> {
+    pub kind: SchemaErrorKind<'a>,
+    pub state: State<'a>,
 }
 
-impl<'schema> SchemaError<'schema> {
+impl<'a> SchemaError<'a> {
     fn flatten(&self, fmt: &mut std::fmt::Formatter<'_>, root: String) -> std::fmt::Result {
         match &self.kind {
             SchemaErrorKind::Multiple { errors } => {
@@ -75,8 +75,8 @@ impl<'a> std::fmt::Display for SchemaError<'a> {
 }
 
 #[cfg(test)]
-impl<'schema> SchemaErrorKind<'schema> {
-    pub fn with_path(self, path: Vec<PathSegment<'schema>>) -> SchemaError<'schema> {
+impl<'a> SchemaErrorKind<'a> {
+    pub fn with_path(self, path: Vec<PathSegment<'a>>) -> SchemaError<'a> {
         SchemaError {
             kind: self,
             state: State { path },
@@ -84,28 +84,28 @@ impl<'schema> SchemaErrorKind<'schema> {
     }
 }
 
-pub fn add_path_name<'schema>(
-    path: &'schema str,
-) -> impl Fn(SchemaError<'schema>) -> SchemaError<'schema> {
-    move |mut err: SchemaError<'schema>| -> SchemaError<'schema> {
+pub fn add_path_name<'a>(
+    path: &'a str,
+) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+    move |mut err: SchemaError<'a>| -> SchemaError<'a> {
         err.state.path.push(PathSegment::Name(path));
         err
     }
 }
 
-pub fn add_path_index<'schema>(
+pub fn add_path_index<'a>(
     index: usize,
-) -> impl Fn(SchemaError<'schema>) -> SchemaError<'schema> {
-    move |mut err: SchemaError<'schema>| -> SchemaError<'schema> {
+) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+    move |mut err: SchemaError<'a>| -> SchemaError<'a> {
         err.state.path.push(PathSegment::Index(index));
         err
     }
 }
 
-pub fn optional<'schema, T>(
+pub fn optional<'a, T>(
     default: T,
-) -> impl FnOnce(SchemaError<'schema>) -> Result<T, SchemaError<'schema>> {
-    move |err: SchemaError<'schema>| -> Result<T, SchemaError<'schema>> {
+) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
+    move |err: SchemaError<'a>| -> Result<T, SchemaError<'a>> {
         match err.kind {
             SchemaErrorKind::FieldMissing { .. } => Ok(default),
             _ => Err(err),
@@ -113,8 +113,8 @@ pub fn optional<'schema, T>(
     }
 }
 
-impl<'schema> Into<SchemaError<'schema>> for SchemaErrorKind<'schema> {
-    fn into(self) -> SchemaError<'schema> {
+impl<'a> Into<SchemaError<'a>> for SchemaErrorKind<'a> {
+    fn into(self) -> SchemaError<'a> {
         SchemaError {
             kind: self,
             state: State::default(),
