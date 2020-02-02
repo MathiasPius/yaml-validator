@@ -11,7 +11,7 @@ use error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKin
 use utils::YamlUtils;
 
 trait Validate<'yaml, 'schema: 'yaml> {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
+    fn validate(&self, ctx: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>>;
 }
 
 #[derive(Debug, Default)]
@@ -167,25 +167,25 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReference<'schema> {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+    fn validate(&self, _: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
     }
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+    fn validate(&self,  _: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
     }
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+    fn validate(&self,  _: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("integer", Yaml::as_i64).and_then(|_| Ok(()))
     }
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+    fn validate(&self,  ctx: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash)?;
 
         let items: Vec<&'schema str> = self.items.keys().copied().collect();
@@ -199,7 +199,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
                     .lookup(name, "yaml", Option::from)
                     .map_err(add_path_name(name))?;
 
-                schema_item.validate(item).map_err(add_path_name(name))?;
+                schema_item.validate(ctx, item).map_err(add_path_name(name))?;
                 Ok(())
             })
             .filter_map(Result::err)
@@ -216,14 +216,14 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+    fn validate(&self,  ctx: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         let items = yaml.as_type("array", Yaml::as_vec)?;
 
         if let Some(schema) = &self.items {
             let mut errors: Vec<SchemaError<'yaml>> = items
                 .iter()
                 .enumerate()
-                .map(|(i, item)| schema.validate(item).map_err(add_path_index(i)))
+                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)))
                 .filter(Result::is_err)
                 .map(Result::unwrap_err)
                 .collect();
@@ -242,13 +242,13 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
 }
 
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
-    fn validate(&self, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
+    fn validate(&self,  ctx: &'schema Context<'schema>, yaml: &'yaml Yaml) -> Result<(), SchemaError<'yaml>> {
         match self {
-            PropertyType::Integer(p) => p.validate(yaml),
-            PropertyType::String(p) => p.validate(yaml),
-            PropertyType::Object(p) => p.validate(yaml),
-            PropertyType::Array(p) => p.validate(yaml),
-            PropertyType::Reference(p) => p.validate(yaml),
+            PropertyType::Integer(p) => p.validate(ctx, yaml),
+            PropertyType::String(p) => p.validate(ctx, yaml),
+            PropertyType::Object(p) => p.validate(ctx, yaml),
+            PropertyType::Array(p) => p.validate(ctx, yaml),
+            PropertyType::Reference(p) => p.validate(ctx, yaml),
         }
     }
 }

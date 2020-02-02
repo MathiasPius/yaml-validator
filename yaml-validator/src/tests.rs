@@ -1,5 +1,5 @@
 use crate::error::{PathSegment, SchemaErrorKind};
-use crate::Validate;
+use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::{Yaml, YamlLoader};
 
@@ -70,8 +70,8 @@ mod errors {
                 - num: jkl
             "#,
         );
-
-        let err = schema.validate(&document).unwrap_err();
+        let ctx = Context::default();
+        let err = schema.validate(&ctx, &document).unwrap_err();
 
         debug_assert_eq!(
             format!("{}", err),
@@ -214,7 +214,7 @@ mod schemaobject {
         let schema = SchemaObject::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("hello world")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "string"
@@ -228,7 +228,7 @@ mod schemaobject {
         let schema = SchemaObject::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("10")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "integer"
@@ -243,7 +243,7 @@ mod schemaobject {
 
         debug_assert_eq!(
             schema
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
                 - abc
                 - 123
@@ -273,7 +273,7 @@ mod schemaobject {
         let schema = SchemaObject::try_from(&yaml).unwrap();
 
         schema
-            .validate(&load_simple(
+            .validate(&Context::default(), &load_simple(
                 r#"
             hello: world
             world: 20
@@ -298,7 +298,7 @@ mod schemaobject {
 
         debug_assert_eq!(
             schema
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
             hello: 20
             world: world
@@ -404,7 +404,7 @@ mod schemaarray {
         let schema = SchemaArray::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("hello world")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
                 actual: "string"
@@ -418,7 +418,7 @@ mod schemaarray {
         let schema = SchemaArray::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("10")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
                 actual: "integer"
@@ -430,7 +430,7 @@ mod schemaarray {
     #[test]
     fn validate_untyped_array() {
         SchemaArray::default()
-            .validate(&load_simple(
+            .validate(&Context::default(), &load_simple(
                 r#"
                 - abc
                 - 123
@@ -451,7 +451,7 @@ mod schemaarray {
         debug_assert_eq!(
             SchemaArray::try_from(&yaml)
                 .unwrap()
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
                 - abc
                 - 1
@@ -491,7 +491,7 @@ mod schemaarray {
         let schema = SchemaArray::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("hello: world")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("hello: world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "array",
                 actual: "hash"
@@ -508,7 +508,7 @@ mod schemareference {
     #[test]
     fn validate_string() {
         SchemaReference { uri: "test" }
-            .validate(&load_simple("hello"))
+            .validate(&Context::default(), &load_simple("hello"))
             .unwrap();
     }
 }
@@ -566,7 +566,7 @@ mod schemastring {
     #[test]
     fn validate_string() {
         let schema = SchemaString::default();
-        schema.validate(&load_simple("hello world")).unwrap();
+        schema.validate(&Context::default(), &load_simple("hello world")).unwrap();
     }
 
     #[test]
@@ -574,7 +574,7 @@ mod schemastring {
         let schema = SchemaString::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("10")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "string",
                 actual: "integer"
@@ -589,7 +589,7 @@ mod schemastring {
 
         debug_assert_eq!(
             schema
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
                 - abc
                 - 123
@@ -610,7 +610,7 @@ mod schemastring {
 
         debug_assert_eq!(
             schema
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
                 hello: world
             "#
@@ -680,7 +680,7 @@ mod schemainteger {
         let schema = SchemaInteger::default();
 
         debug_assert_eq!(
-            schema.validate(&load_simple("hello world")).unwrap_err(),
+            schema.validate(&Context::default(), &load_simple("hello world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "integer",
                 actual: "string"
@@ -693,7 +693,7 @@ mod schemainteger {
     fn validate_integer() {
         let schema = SchemaInteger::default();
 
-        schema.validate(&load_simple("10")).unwrap();
+        schema.validate(&Context::default(), &load_simple("10")).unwrap();
     }
 
     #[test]
@@ -702,7 +702,7 @@ mod schemainteger {
 
         debug_assert_eq!(
             schema
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
                 - abc
                 - 123
@@ -723,7 +723,7 @@ mod schemainteger {
 
         debug_assert_eq!(
             schema
-                .validate(&load_simple(
+                .validate(&Context::default(), &load_simple(
                     r#"
                 hello: world
             "#
