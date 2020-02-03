@@ -60,10 +60,6 @@ enum PropertyType<'schema> {
 }
 
 impl<'schema> Context<'schema> {
-    pub fn add_schema(&mut self, schema: Schema<'schema>) {
-        self.schemas.insert(schema.uri, schema);
-    }
-
     pub fn get_schema(&self, uri: &str) -> Option<&Schema<'schema>> {
         self.schemas.get(uri)
     }
