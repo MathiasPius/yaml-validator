@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fs::read;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use yaml_validator::{Context, Schema, Validate, Yaml, YamlLoader};
+use yaml_validator::{Context, Validate, Yaml, YamlLoader};
 
 mod error;
 use error::Error;
@@ -23,12 +23,8 @@ struct Opt {
     )]
     schemas: Vec<PathBuf>,
 
-    #[structopt(
-        short,
-        long,
-        help = "URI of the schema to validate the files against. If not supplied, the last schema added will be used for validation."
-    )]
-    uri: Option<String>,
+    #[structopt(short, long, help = "URI of the schema to validate the files against.")]
+    uri: String,
 
     #[structopt(
         parse(from_os_str),
@@ -64,19 +60,13 @@ fn secret_main(opt: Opt) -> Result<(), Error> {
     let context = Context::try_from(&yaml_schemas)?;
 
     let schema = {
-        if let Some(uri) = &opt.uri {
-            if let Some(schema) = context.get_schema(&uri) {
-                schema
-            } else {
-                return Err(Error::ValidationError(format!(
-                    "Schema referenced by uri `{}` not found in context",
-                    uri
-                )));
-            }
+        if let Some(schema) = context.get_schema(&opt.uri) {
+            schema
         } else {
-            return Err(Error::InputError(
-                "No schemas supplied, see the --schema option for information".into(),
-            ));
+            return Err(Error::ValidationError(format!(
+                "Schema referenced by uri `{}` not found in context",
+                opt.uri
+            )));
         }
     };
 
@@ -97,12 +87,7 @@ fn main() {
     match secret_main(opt) {
         Ok(()) => println!("All files validated successfully!"),
         Err(e) => {
-            match e {
-                Error::InputError(e) => {
-                    println!("{}", e);
-                }
-                _ => println!("failed: {}", e),
-            }
+            println!("failed: {}", e);
             std::process::exit(1);
         }
     }
