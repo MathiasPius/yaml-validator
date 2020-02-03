@@ -1,8 +1,8 @@
+use std::convert::TryFrom;
 use std::fs::read;
 use std::path::PathBuf;
-use std::str::FromStr;
 use structopt::StructOpt;
-use yaml_validator::{YamlContext, YamlSchema};
+use yaml_validator::{Context, Schema, Validate, Yaml, YamlLoader};
 
 mod error;
 use error::Error;
@@ -37,24 +37,35 @@ struct Opt {
     files: Vec<PathBuf>,
 }
 
-fn read_file(filename: &PathBuf) -> Result<String, std::io::Error> {
+fn read_file(filename: &PathBuf) -> Result<String, Error> {
     Ok(String::from_utf8_lossy(&read(filename).unwrap())
         .parse()
         .unwrap())
 }
 
-fn secret_main(opt: &Opt) -> Result<(), Error> {
-    let mut context = YamlContext::default();
+fn load_yaml(filenames: Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
+    let (yaml, errs): (Vec<_>, Vec<_>) = filenames
+        .iter()
+        .map(|file| {
+            read_file(&file)
+                .and_then(|source| YamlLoader::load_from_str(&source).map_err(Error::from))
+        })
+        .partition(Result::is_ok);
 
-    for schemafile in opt.schemas.iter() {
-        let content = read_file(&schemafile)?;
-        let yaml = YamlSchema::from_str(&content)?;
-        context.add_schema(yaml);
+    if !errs.is_empty() {
+        Err(errs.into_iter().map(Result::unwrap_err).collect())
+    } else {
+        Ok(yaml.into_iter().map(Result::unwrap).flatten().collect())
     }
+}
+
+fn secret_main(opt: Opt) -> Result<(), Error> {
+    let yaml_schemas = load_yaml(opt.schemas).map_err(Error::Multiple)?;
+    let context = Context::try_from(&yaml_schemas)?;
 
     let schema = {
         if let Some(uri) = &opt.uri {
-            if let Some(schema) = context.lookup(&uri) {
+            if let Some(schema) = context.get_schema(&uri) {
                 schema
             } else {
                 return Err(Error::ValidationError(format!(
@@ -62,8 +73,6 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
                     uri
                 )));
             }
-        } else if let Some(schema) = context.schemas().last() {
-            schema
         } else {
             return Err(Error::InputError(
                 "No schemas supplied, see the --schema option for information".into(),
@@ -71,12 +80,12 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
         }
     };
 
-    for yamlfile in opt.files.iter() {
-        let yaml = read_file(&yamlfile)?;
+    let documents = load_yaml(opt.files).map_err(Error::Multiple)?;
+    for doc in documents {
         schema
-            .validate_str(&yaml, Some(&context))
-            .map_err(|e| Error::ValidationError(format!("{:?}: {}", yamlfile, e)))?;
-        println!("valid: {:?}", &yamlfile);
+            .validate(&context, &doc)
+            .map_err(|err| Error::ValidationError(format!("{:?}: {}", doc, err)))?;
+        println!("valid");
     }
 
     Ok(())
@@ -85,7 +94,7 @@ fn secret_main(opt: &Opt) -> Result<(), Error> {
 fn main() {
     let opt = Opt::from_args();
 
-    match secret_main(&opt) {
+    match secret_main(opt) {
         Ok(()) => println!("All files validated successfully!"),
         Err(e) => {
             match e {

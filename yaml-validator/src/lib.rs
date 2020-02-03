@@ -1,16 +1,19 @@
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
-use yaml_rust::Yaml;
+pub use yaml_rust::ScanError;
+pub use yaml_rust::{Yaml, YamlLoader};
 
 mod error;
 #[cfg(test)]
 mod tests;
 mod utils;
 
-use error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
+pub use error::SchemaError;
+use error::{add_path_index, add_path_name, optional, SchemaErrorKind};
+
 use utils::YamlUtils;
 
-trait Validate<'yaml, 'schema: 'yaml> {
+pub trait Validate<'yaml, 'schema: 'yaml> {
     fn validate(
         &self,
         ctx: &'schema Context<'schema>,
@@ -19,12 +22,12 @@ trait Validate<'yaml, 'schema: 'yaml> {
 }
 
 #[derive(Debug, Default)]
-struct Context<'schema> {
+pub struct Context<'schema> {
     schemas: BTreeMap<&'schema str, Schema<'schema>>,
 }
 
 #[derive(Debug)]
-struct Schema<'schema> {
+pub struct Schema<'schema> {
     uri: &'schema str,
     schema: PropertyType<'schema>,
 }
