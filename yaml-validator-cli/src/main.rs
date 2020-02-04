@@ -56,6 +56,18 @@ fn load_yaml(filenames: Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
 }
 
 fn secret_main(opt: Opt) -> Result<(), Error> {
+    if opt.schemas.is_empty() {
+        return Err(Error::ValidationError(
+            "No schemas supplied, see the --schema option for information".into(),
+        ));
+    }
+
+    if opt.files.is_empty() {
+        return Err(Error::ValidationError(
+            "No files to validate were supplied, use --help for more information".into(),
+        ));
+    }
+
     let yaml_schemas = load_yaml(opt.schemas).map_err(Error::Multiple)?;
     let context = Context::try_from(&yaml_schemas)?;
 
