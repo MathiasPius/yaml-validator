@@ -136,7 +136,8 @@ impl<'schema> TryFrom<&'schema Yaml> for Schema<'schema> {
         yaml.strict_contents(&["uri", "schema"], &[])?;
 
         let uri = yaml.lookup("uri", "string", Yaml::as_str)?;
-        let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)?;
+        let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)
+            .map_err(add_path_name(uri))?;
 
         Ok(Schema { uri, schema })
     }

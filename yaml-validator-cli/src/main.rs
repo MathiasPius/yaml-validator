@@ -39,7 +39,7 @@ fn read_file(filename: &PathBuf) -> Result<String, Error> {
         .unwrap())
 }
 
-fn load_yaml(filenames: Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
+fn load_yaml(filenames: &Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
     let (yaml, errs): (Vec<_>, Vec<_>) = filenames
         .iter()
         .map(|file| {
@@ -68,7 +68,7 @@ fn secret_main(opt: Opt) -> Result<(), Error> {
         ));
     }
 
-    let yaml_schemas = load_yaml(opt.schemas).map_err(Error::Multiple)?;
+    let yaml_schemas = load_yaml(&opt.schemas).map_err(Error::Multiple)?;
     let context = Context::try_from(&yaml_schemas)?;
 
     let schema = {
@@ -82,11 +82,11 @@ fn secret_main(opt: Opt) -> Result<(), Error> {
         }
     };
 
-    let documents = load_yaml(opt.files).map_err(Error::Multiple)?;
-    for doc in documents {
+    let documents = opt.files.iter().zip(load_yaml(&opt.files).map_err(Error::Multiple)?);
+    for (name, doc) in documents {
         schema
             .validate(&context, &doc)
-            .map_err(|err| Error::ValidationError(format!("{:?}: {}", doc, err)))?;
+            .map_err(|err| Error::ValidationError(format!("{name}{err}", name=name.to_string_lossy(), err=err)))?;
         println!("valid");
     }
 
