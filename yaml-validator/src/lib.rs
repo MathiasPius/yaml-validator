@@ -1,15 +1,15 @@
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
-pub use yaml_rust::ScanError;
-pub use yaml_rust::{Yaml, YamlLoader};
+pub use yaml_rust;
+use yaml_rust::Yaml;
 
 mod error;
 mod types;
 mod utils;
 use types::*;
 
-pub use error::SchemaError;
-use error::{add_path_name, optional, SchemaErrorKind};
+pub use error::{SchemaError, SchemaErrorKind};
+use error::{add_path_name, optional};
 
 use utils::YamlUtils;
 
@@ -145,6 +145,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Schema<'schema> {
 mod tests {
     use super::*;
     use crate::utils::load_simple;
+    use yaml_rust::YamlLoader;
     use crate::Context;
 
     #[test]

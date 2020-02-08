@@ -1,5 +1,4 @@
-//use yaml_validator::{StatefulError, YamlSchemaError};
-use yaml_validator::{ScanError, SchemaError};
+use yaml_validator::{yaml_rust::ScanError, SchemaError};
 
 #[derive(Debug)]
 pub enum Error {

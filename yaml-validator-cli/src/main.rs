@@ -2,7 +2,10 @@ use std::convert::TryFrom;
 use std::fs::read;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use yaml_validator::{Context, Validate, Yaml, YamlLoader};
+use yaml_validator::{
+    yaml_rust::{Yaml, YamlLoader},
+    Context, Validate,
+};
 
 mod error;
 use error::Error;
