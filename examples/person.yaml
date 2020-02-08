@@ -1,7 +1,0 @@
----
-uri: examples/0.0.3/person
-schema:
-  - name: firstname
-    type: string
-  - name: age
-    type: number

@@ -49,6 +49,10 @@ The schema format supports a very limited number of types that map very closely 
 All of the examples below can also be found in the [examples/](examples/) directory.
 
 <details><summary>Simple example using nested schemas through references</summary>
+<p>
+
+Here's an example of a `phonebook` schema referencing a `person` object
+
 ```yaml
 ---
 uri: person
@@ -70,4 +74,7 @@ schema:
       items:
         $ref: person
 ```
+
+</p>
+
 </details>
