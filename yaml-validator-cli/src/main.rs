@@ -75,7 +75,7 @@ fn load_yaml(filenames: &Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
 // Ideally this would just be the real main function, but since errors are
 // automatically printed using the Debug trait rather than Display, the error
 // messages are not very easy to read.
-pub(crate) fn actual_main(opt: Opt) -> Result<(), Error> {
+fn actual_main(opt: Opt) -> Result<(), Error> {
     if opt.schemas.is_empty() {
         return Err(Error::ValidationError(
             "no schemas supplied, see the --schema option for information\n".into(),
