@@ -37,6 +37,10 @@ pub enum SchemaErrorKind<'a> {
         expected: &'static str,
         actual: &'a str,
     },
+    #[error("malformed field {field}: {error}")]
+    MalformedField { field: &'a str, error: String },
+    #[error("special requirements for field not met: {error}")]
+    ValidationError { error: &'a str },
     #[error("field '{field}' missing")]
     FieldMissing { field: &'a str },
     #[error("field '{field}' is not specified in the schema")]
