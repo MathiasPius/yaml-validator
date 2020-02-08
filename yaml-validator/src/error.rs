@@ -2,13 +2,13 @@
 
 use thiserror::Error;
 
-#[cfg(feature = "smallvec-optimization")]
+#[cfg(feature = "smallvec")]
 pub type PathVec<'a> = smallvec::SmallVec<[PathSegment<'a>;8]>;
-#[cfg(not(feature = "smallvec-optimization"))]
+#[cfg(not(feature = "smallvec"))]
 pub type PathVec<'a> = Vec<PathSegment<'a>>;
 
 #[cfg(test)]
-#[cfg(feature = "smallvec-optimization")]
+#[cfg(feature = "smallvec")]
 macro_rules! path{
     ( $( $x:expr ),* ) => {
         smallvec![
@@ -18,7 +18,7 @@ macro_rules! path{
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "smallvec-optimization"))]
+#[cfg(not(feature = "smallvec"))]
 macro_rules! path{
     ( $( $x:expr ),* ) => {
         vec![
