@@ -22,3 +22,9 @@
         - massive eyes instead of windows
         - arrogance
       price: 0
+
+# example usage:
+# yaml-validator-cli                          \
+#     --schema examples/all-types/schema.yaml \
+#     --uri customer-list                     \
+#     examples/all-types/customers.yaml
