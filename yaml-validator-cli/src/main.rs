@@ -36,11 +36,11 @@ struct Opt {
 
 fn read_file(filename: &PathBuf) -> Result<String, Error> {
     let contents =
-        read(filename).map_err(|e| Error::FileError(format!("could not read file: {}", e)))?;
+        read(filename).map_err(|e| Error::FileError(format!("could not read file {}: {}\n", filename.to_string_lossy(), e)))?;
 
     let utf8 = String::from_utf8_lossy(&contents)
         .parse()
-        .map_err(|e| Error::FileError(format!("file did not contain valid utf8: {}", e)))?;
+        .map_err(|e| Error::FileError(format!("file {} did not contain valid utf8: {}\n", filename.to_string_lossy(), e)))?;
 
     Ok(utf8)
 }
