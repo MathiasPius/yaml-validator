@@ -36,6 +36,7 @@ The schema format supports a very limited number of types that map very closely 
 
  * `string` utf8-compliant string
  * `integer` i64 integer
+ * `real` f64 floating point value
  * `hash` (also know as `dictionary` or `hashmap`) that maps `string ➞ <type>` as defined in `items`
     * `items: <type>` (optional) type of the values in the hash
  * `array` array of items of type `<type>`
