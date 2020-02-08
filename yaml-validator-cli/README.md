@@ -46,7 +46,7 @@ The schema format supports a very limited number of types that map very closely 
  * `$ref: <uri>` reference to schema in same context identified by `<uri>`
 
 # Examples
-All of the examples below can also be found in the [examples/](examples/) directory.
+All of the examples below can also be found in the [examples/](../examples/) directory.
 
 <details><summary>Using nested schemas through references</summary>
 <p>
@@ -76,7 +76,7 @@ schema:
         $ref: person
 ```
 
-Source: [examples/nesting/schema.yaml](examples/nesting/schema.yaml)
+Source: [examples/nesting/schema.yaml](../examples/nesting/schema.yaml)
 
 We can then use the above schema to validate a yaml document as defined here:
 
@@ -89,12 +89,73 @@ phonebook:
   - name: tammy
     phone: 987654
 ```
-Source: [examples/nesting/schema.yaml](examples/nesting/mybook.yaml)
+Source: [examples/nesting/mybook.yaml](../examples/nesting/mybook.yaml)
 
 ... Using the `yaml-validator-cli` as follows:
 
 ```bash
 $ yaml-validator-cli --schema phonebook.yaml --uri phonebook -- mybook.yaml
+all files validated successfully!
+```
+
+</p></details>
+
+
+<details><summary>Referencing schemas across file boundaries</summary>
+<p>
+
+All schemas given using the `--schema` commandline option are all loaded into the same context, so referencing a schema defined in a separate file is exactly the same as if they had been defined in the same file.
+
+```yaml
+# person-schema.yaml
+---
+uri: person
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    phone:
+      type: integer
+```
+
+Source: [examples/multiple-schemas/person-schema.yaml](../examples/multiple-schemas/person-schema.yaml)
+
+```yaml
+# phonebook-schema.yaml
+---
+uri: phonebook
+schema:
+  type: object
+  items:
+    phonebook:
+      type: array
+      items:
+        $ref: person
+```
+Source: [examples/multiple-schemas/phonebook-schema.yaml](../examples/multiple-schemas/phonebook-schema.yaml)
+
+Validate the following yaml document against our schemas above:
+
+```yaml
+# mybook.yaml
+---
+phonebook:
+  - name: timmy
+    phone: 123456
+  - name: tammy
+    phone: 987654
+```
+Source: [examples/multiple-schemas/mybook.yaml](../examples/multiple-schemas/mybook.yaml)
+
+... Using the `yaml-validator-cli` as follows:
+
+```bash
+$ yaml-validator-cli                \
+    --schema phonebook-schema.yaml  \
+    --schema person-schema.yaml     \
+    --uri phonebook                 \
+    mybook.yaml
 all files validated successfully!
 ```
 
