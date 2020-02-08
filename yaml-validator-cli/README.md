@@ -31,7 +31,7 @@ ARGS:
 ```
 </p></details>
 
-## Currently Supported datatypes
+## Currently supported datatypes
 The schema format supports a very limited number of types that map very closely to the YAML specification:
 
  * `string` utf8-compliant string
