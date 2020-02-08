@@ -65,9 +65,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::PathSegment;
     use crate::utils::load_simple;
     use crate::SchemaArray;
+
+    #[cfg(feature = "smallvec")]
+    use smallvec::smallvec;
 
     #[test]
     fn from_yaml() {

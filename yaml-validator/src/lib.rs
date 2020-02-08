@@ -3,10 +3,6 @@ use std::convert::TryFrom;
 pub use yaml_rust;
 use yaml_rust::Yaml;
 
-#[cfg_attr(all(test, feature = "smallvec"), macro_use)]
-#[cfg(all(test, feature = "smallvec"))]
-extern crate smallvec;
-
 mod error;
 mod types;
 mod utils;

@@ -12,7 +12,7 @@ pub type PathVec<'a> = Vec<PathSegment<'a>>;
 macro_rules! path{
     ( $( $x:expr ),* ) => {
         smallvec![
-            $(PathSegment::from($x),)*
+            $(crate::error::PathSegment::from($x),)*
         ]
     }
 }
@@ -22,7 +22,7 @@ macro_rules! path{
 macro_rules! path{
     ( $( $x:expr ),* ) => {
         vec![
-            $(PathSegment::from($x),)*
+            $(crate::error::PathSegment::from($x),)*
         ]
     }
 }
