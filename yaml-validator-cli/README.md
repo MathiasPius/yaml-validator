@@ -97,6 +97,7 @@ Source: [examples/nesting/mybook.yaml](../examples/nesting/mybook.yaml)
 $ yaml-validator-cli --schema phonebook.yaml --uri phonebook -- mybook.yaml
 all files validated successfully!
 ```
+---
 
 </p></details>
 
@@ -158,5 +159,6 @@ $ yaml-validator-cli                \
     mybook.yaml
 all files validated successfully!
 ```
+---
 
 </p></details>
