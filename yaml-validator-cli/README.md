@@ -254,3 +254,63 @@ all files validated successfully!
 ---
 
 </p></details>
+
+<details><summary>Locating errors in documents</summary>
+<p>
+Error messages always contain the full path within the document, as well as the document name in which the validation error occurred. This lets you pretty easily track down the exact source of the error.
+
+With a phonebook schema as follows:
+
+```yaml
+# schema.yaml
+---
+uri: person
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    age: 
+      type: integer
+
+---
+uri: phonebook
+schema:
+  type: array
+  items:
+    $ref: person
+```
+Source: Source: [examples/locating-errors/schema.yaml](../examples/locating-errors/schema.yaml)
+
+We can validate our very non-compliant document defined as:
+
+```yaml
+# phonebook.yaml
+- name: John
+  age: 52
+- name: Karen
+  age: 12.5
+- name: 200
+  age: Jimmy
+```
+Source: Source: [examples/locating-errors/phonebook.yaml](../examples/locating-errors/phonebook.yaml)
+
+Using yaml-validator-cli as follows:
+
+```
+$ yaml-validator-cli      \
+    --schema schema.yaml  \
+    --uri phonebook       \
+     phonebook.yaml
+phonebook.yaml:
+#[1].age: wrong type, expected integer got real
+#[2].age: wrong type, expected integer got string
+#[2].name: wrong type, expected string got integer
+```
+The error message correctly tells us that there's an issue with the document `phonebook.yaml` supplied. Karen's age is a real, not an integer, and Jimmy's age and name have been switched.
+
+Note: The `#` denotes the root of the document, `phonebook.yaml` in this case.
+
+---
+
+</p></details>
