@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use yaml_validator::{Context, Validate, Yaml, YamlLoader};
 
+
 mod error;
 use error::Error;
 
@@ -34,9 +35,14 @@ struct Opt {
 }
 
 fn read_file(filename: &PathBuf) -> Result<String, Error> {
-    Ok(String::from_utf8_lossy(&read(filename).unwrap())
+    let contents =
+        read(filename).map_err(|e| Error::FileError(format!("could not read file: {}", e)))?;
+
+    let utf8 = String::from_utf8_lossy(&contents)
         .parse()
-        .unwrap())
+        .map_err(|e| Error::FileError(format!("file did not contain valid utf8: {}", e)))?;
+
+    Ok(utf8)
 }
 
 fn load_yaml(filenames: &Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
@@ -55,16 +61,19 @@ fn load_yaml(filenames: &Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
     }
 }
 
-fn secret_main(opt: Opt) -> Result<(), Error> {
+// Ideally this would just be the real main function, but since errors are
+// automatically printed using the Debug trait rather than Display, the error
+// messages are not very easy to read.
+pub(crate) fn actual_main(opt: Opt) -> Result<(), Error> {
     if opt.schemas.is_empty() {
         return Err(Error::ValidationError(
-            "No schemas supplied, see the --schema option for information".into(),
+            "no schemas supplied, see the --schema option for information\n".into(),
         ));
     }
 
     if opt.files.is_empty() {
         return Err(Error::ValidationError(
-            "No files to validate were supplied, use --help for more information".into(),
+            "no files to validate were supplied, use --help for more information\n".into(),
         ));
     }
 
@@ -76,31 +85,39 @@ fn secret_main(opt: Opt) -> Result<(), Error> {
             schema
         } else {
             return Err(Error::ValidationError(format!(
-                "Schema referenced by uri `{}` not found in context",
+                "schema referenced by uri `{}` not found in context\n",
                 opt.uri
             )));
         }
     };
 
-    let documents = opt.files.iter().zip(load_yaml(&opt.files).map_err(Error::Multiple)?);
+    let documents = opt
+        .files
+        .iter()
+        .zip(load_yaml(&opt.files).map_err(Error::Multiple)?);
     for (name, doc) in documents {
-        schema
-            .validate(&context, &doc)
-            .map_err(|err| Error::ValidationError(format!("{name}{err}", name=name.to_string_lossy(), err=err)))?;
-        println!("valid");
+        schema.validate(&context, &doc).map_err(|err| {
+            Error::ValidationError(format!(
+                "{name}:\n{err}",
+                name = name.to_string_lossy(),
+                err = err
+            ))
+        })?;
     }
 
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
 
-    match secret_main(opt) {
-        Ok(()) => println!("All files validated successfully!"),
+    match actual_main(opt) {
+        Ok(()) => println!("all files validated successfully!"),
         Err(e) => {
-            println!("failed: {}", e);
+            eprint!("{}", e);
             std::process::exit(1);
         }
     }
+
+    Ok(())
 }
