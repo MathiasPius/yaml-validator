@@ -31,6 +31,8 @@ pub struct Context<'schema> {
 impl<'schema> Context<'schema> {
     /// Get a reference to a single schema within the context to use for validation.
     ///
+    /// # Examples
+    ///
     /// ```rust
     /// # use yaml_rust::YamlLoader;
     /// # use std::convert::TryFrom;
@@ -91,6 +93,7 @@ enum PropertyType<'schema> {
     Hash(SchemaHash<'schema>),
     String(SchemaString),
     Integer(SchemaInteger),
+    Real(SchemaReal),
     Reference(SchemaReference<'schema>),
 }
 
@@ -112,6 +115,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             "object" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
             "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
             "integer" => Ok(PropertyType::Integer(SchemaInteger::try_from(yaml)?)),
+            "real" => Ok(PropertyType::Real(SchemaReal::try_from(yaml)?)),
             "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
             "hash" => Ok(PropertyType::Hash(SchemaHash::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
@@ -127,6 +131,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
     ) -> Result<(), SchemaError<'yaml>> {
         match self {
             PropertyType::Integer(p) => p.validate(ctx, yaml),
+            PropertyType::Real(p) => p.validate(ctx, yaml),
             PropertyType::String(p) => p.validate(ctx, yaml),
             PropertyType::Object(p) => p.validate(ctx, yaml),
             PropertyType::Array(p) => p.validate(ctx, yaml),

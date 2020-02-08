@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn malformed_items() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaArray::try_from(&load_simple(
                 r#"
             items:
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn from_string() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaArray::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn from_integer() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaArray::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn from_array() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaArray::try_from(&load_simple(
                 r#"
                 - hello
@@ -145,7 +145,7 @@ mod tests {
     fn validate_string() {
         let schema = SchemaArray::default();
 
-        debug_assert_eq!(
+        assert_eq!(
             schema
                 .validate(&Context::default(), &load_simple("hello world"))
                 .unwrap_err(),
@@ -161,7 +161,7 @@ mod tests {
     fn validate_integer() {
         let schema = SchemaArray::default();
 
-        debug_assert_eq!(
+        assert_eq!(
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
@@ -197,7 +197,7 @@ mod tests {
         "#,
         );
 
-        debug_assert_eq!(
+        assert_eq!(
             SchemaArray::try_from(&yaml)
                 .unwrap()
                 .validate(
@@ -242,7 +242,7 @@ mod tests {
     fn validate_hash() {
         let schema = SchemaArray::default();
 
-        debug_assert_eq!(
+        assert_eq!(
             schema
                 .validate(&Context::default(), &load_simple("hello: world"))
                 .unwrap_err(),

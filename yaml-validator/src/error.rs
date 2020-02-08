@@ -49,7 +49,6 @@ pub enum SchemaErrorKind<'a> {
     UnknownSchema { uri: &'a str },
 }
 
-
 /// A wrapper type around SchemaErrorKind containing path information about where the error occurred.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SchemaError<'a> {
@@ -145,7 +144,7 @@ mod tests {
 
         let err = SchemaObject::try_from(&yaml).unwrap_err();
 
-        debug_assert_eq!(
+        assert_eq!(
             format!("{}", err),
             "#.items.something.items.level2.items.leaf: field \'type\' missing\n",
         );
@@ -189,7 +188,7 @@ mod tests {
         let ctx = Context::default();
         let err = schema.validate(&ctx, &document).unwrap_err();
 
-        debug_assert_eq!(
+        assert_eq!(
             format!("{}", err),
             r#"#.something.level2[0].num: wrong type, expected integer got string
 #.something.level2[1].num: wrong type, expected integer got hash

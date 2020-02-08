@@ -39,7 +39,7 @@ pub trait YamlUtils {
 impl YamlUtils for Yaml {
     fn type_to_str(&self) -> &'static str {
         match self {
-            Yaml::Real(_) => "float",
+            Yaml::Real(_) => "real",
             Yaml::Integer(_) => "integer",
             Yaml::String(_) => "string",
             Yaml::Boolean(_) => "boolean",

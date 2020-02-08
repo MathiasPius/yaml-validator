@@ -5,24 +5,24 @@ use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
 #[derive(Debug, Default)]
-pub(crate) struct SchemaInteger {}
+pub(crate) struct SchemaReal {}
 
-impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
+impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.strict_contents(&[], &["type"])?;
 
-        Ok(SchemaInteger {})
+        Ok(SchemaReal {})
     }
 }
 
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReal {
     fn validate(
         &self,
         _: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
     ) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("integer", Yaml::as_i64).and_then(|_| Ok(()))
+        yaml.as_type("real", Yaml::as_f64).and_then(|_| Ok(()))
     }
 }
 
@@ -34,13 +34,13 @@ mod tests {
 
     #[test]
     fn from_yaml() {
-        SchemaInteger::try_from(&load_simple("type: string")).unwrap();
+        SchemaReal::try_from(&load_simple("type: real")).unwrap();
     }
 
     #[test]
     fn from_string() {
         assert_eq!(
-            SchemaInteger::try_from(&load_simple("world")).unwrap_err(),
+            SchemaReal::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "string"
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn from_integer() {
         assert_eq!(
-            SchemaInteger::try_from(&load_simple("10")).unwrap_err(),
+            SchemaReal::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
                 actual: "integer"
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn from_array() {
         assert_eq!(
-            SchemaInteger::try_from(&load_simple(
+            SchemaReal::try_from(&load_simple(
                 r#"
                 - hello
                 - world
@@ -81,14 +81,14 @@ mod tests {
 
     #[test]
     fn validate_string() {
-        let schema = SchemaInteger::default();
+        let schema = SchemaReal::default();
 
         assert_eq!(
             schema
                 .validate(&Context::default(), &load_simple("hello world"))
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
-                expected: "integer",
+                expected: "real",
                 actual: "string"
             }
             .into()
@@ -97,16 +97,32 @@ mod tests {
 
     #[test]
     fn validate_integer() {
-        let schema = SchemaInteger::default();
+        let schema = SchemaReal::default();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("10"))
+                .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "real",
+                actual: "integer"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_real() {
+        let schema = SchemaReal::default();
 
         schema
-            .validate(&Context::default(), &load_simple("10"))
+            .validate(&Context::default(), &load_simple("3.1415"))
             .unwrap();
     }
 
     #[test]
     fn validate_array() {
-        let schema = SchemaInteger::default();
+        let schema = SchemaReal::default();
 
         assert_eq!(
             schema
@@ -121,7 +137,7 @@ mod tests {
                 )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
-                expected: "integer",
+                expected: "real",
                 actual: "array"
             }
             .into()
@@ -130,7 +146,7 @@ mod tests {
 
     #[test]
     fn validate_hash() {
-        let schema = SchemaInteger::default();
+        let schema = SchemaReal::default();
 
         assert_eq!(
             schema
@@ -144,7 +160,7 @@ mod tests {
                 )
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
-                expected: "integer",
+                expected: "real",
                 actual: "hash"
             }
             .into()

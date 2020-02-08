@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn from_string() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaString::try_from(&load_simple("world")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn from_integer() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaString::try_from(&load_simple("10")).unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "hash",
@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn from_array() {
-        debug_assert_eq!(
+        assert_eq!(
             SchemaString::try_from(&load_simple(
                 r#"
                 - hello
@@ -92,7 +92,7 @@ mod tests {
     fn validate_integer() {
         let schema = SchemaString::default();
 
-        debug_assert_eq!(
+        assert_eq!(
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
@@ -108,7 +108,7 @@ mod tests {
     fn validate_array() {
         let schema = SchemaString::default();
 
-        debug_assert_eq!(
+        assert_eq!(
             schema
                 .validate(
                     &Context::default(),
@@ -132,7 +132,7 @@ mod tests {
     fn validate_hash() {
         let schema = SchemaString::default();
 
-        debug_assert_eq!(
+        assert_eq!(
             schema
                 .validate(
                     &Context::default(),
