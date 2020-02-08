@@ -2,6 +2,13 @@ use crate::error::{SchemaError, SchemaErrorKind};
 use std::ops::Index;
 use yaml_rust::{yaml::Hash, Yaml};
 
+#[cfg(test)]
+pub(crate) fn load_simple(source: &'static str) -> Yaml {
+    yaml_rust::YamlLoader::load_from_str(source)
+        .unwrap()
+        .remove(0)
+}
+
 pub trait YamlUtils {
     fn type_to_str(&self) -> &'static str;
 

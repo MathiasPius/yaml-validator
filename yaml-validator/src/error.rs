@@ -117,3 +117,83 @@ impl<'a> Into<SchemaError<'a>> for SchemaErrorKind<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::types::*;
+    use crate::utils::load_simple;
+    use crate::{Context, Validate};
+    use std::convert::TryFrom;
+    #[test]
+    fn test_error_path() {
+        let yaml = load_simple(
+            r#"
+            items:
+              test:
+                type: integer
+              something:
+                type: object
+                items:
+                  level2:
+                    type: object
+                    items:
+                      leaf: hello
+            "#,
+        );
+
+        let err = SchemaObject::try_from(&yaml).unwrap_err();
+
+        debug_assert_eq!(
+            format!("{}", err),
+            "#.items.something.items.level2.items.leaf: field \'type\' missing\n",
+        );
+    }
+
+    #[test]
+    fn test_error_path_validation() {
+        let yaml = load_simple(
+            r#"
+            items:
+              test:
+                type: integer
+              something:
+                type: object
+                items:
+                  level2:
+                    type: array
+                    items:
+                      type: object
+                      items:
+                        num:
+                          type: integer
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+        let document = load_simple(
+            r#"
+            test: 20
+            something:
+              level2:
+                - num: abc
+                - num:
+                    hash: value
+                - num:
+                    - array: hello
+                - num: 10
+                - num: jkl
+            "#,
+        );
+        let ctx = Context::default();
+        let err = schema.validate(&ctx, &document).unwrap_err();
+
+        debug_assert_eq!(
+            format!("{}", err),
+            r#"#.something.level2[0].num: wrong type, expected integer got string
+#.something.level2[1].num: wrong type, expected integer got hash
+#.something.level2[2].num: wrong type, expected integer got array
+#.something.level2[4].num: wrong type, expected integer got string
+"#
+        );
+    }
+}

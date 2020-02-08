@@ -4,12 +4,12 @@ pub use yaml_rust::ScanError;
 pub use yaml_rust::{Yaml, YamlLoader};
 
 mod error;
-#[cfg(test)]
-mod tests;
+mod types;
 mod utils;
+use types::*;
 
 pub use error::SchemaError;
-use error::{add_path_index, add_path_name, optional, SchemaErrorKind};
+use error::{add_path_name, optional, SchemaErrorKind};
 
 use utils::YamlUtils;
 
@@ -24,48 +24,6 @@ pub trait Validate<'yaml, 'schema: 'yaml> {
 #[derive(Debug, Default)]
 pub struct Context<'schema> {
     schemas: BTreeMap<&'schema str, Schema<'schema>>,
-}
-
-#[derive(Debug)]
-pub struct Schema<'schema> {
-    uri: &'schema str,
-    schema: PropertyType<'schema>,
-}
-
-#[derive(Debug, Default)]
-struct SchemaObject<'schema> {
-    items: BTreeMap<&'schema str, PropertyType<'schema>>,
-}
-
-#[derive(Debug, Default)]
-struct SchemaArray<'schema> {
-    items: Option<Box<PropertyType<'schema>>>,
-}
-
-#[derive(Debug, Default)]
-struct SchemaHash<'schema> {
-    items: Option<Box<PropertyType<'schema>>>,
-}
-
-#[derive(Debug, Default)]
-struct SchemaString {}
-
-#[derive(Debug, Default)]
-struct SchemaInteger {}
-
-#[derive(Debug, Default)]
-struct SchemaReference<'schema> {
-    uri: &'schema str,
-}
-
-#[derive(Debug)]
-enum PropertyType<'schema> {
-    Object(SchemaObject<'schema>),
-    Array(SchemaArray<'schema>),
-    Hash(SchemaHash<'schema>),
-    String(SchemaString),
-    Integer(SchemaInteger),
-    Reference(SchemaReference<'schema>),
 }
 
 impl<'schema> Context<'schema> {
@@ -102,115 +60,14 @@ impl<'schema> TryFrom<&'schema Vec<Yaml>> for Context<'schema> {
     }
 }
 
-impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["type"])?;
-
-        let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
-
-        let (items, errs): (Vec<_>, Vec<_>) = items
-            .iter()
-            .map(|property| {
-                let name = property.0.as_type("string", Yaml::as_str)?;
-                PropertyType::try_from(property.1)
-                    .map_err(add_path_name(name))
-                    .map_err(add_path_name("items"))
-                    .map(|prop| (name, prop))
-            })
-            .partition(Result::is_ok);
-
-        if !errs.is_empty() {
-            let mut errors: Vec<SchemaError<'schema>> =
-                errs.into_iter().map(Result::unwrap_err).collect();
-            if errors.len() == 1 {
-                return Err(errors.pop().unwrap());
-            } else {
-                return Err(SchemaErrorKind::Multiple { errors }.into());
-            }
-        }
-
-        Ok(SchemaObject {
-            items: items.into_iter().map(Result::unwrap).collect(),
-        })
-    }
-}
-
-impl<'schema> TryFrom<&'schema Yaml> for Schema<'schema> {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["uri", "schema"], &[])?;
-
-        let uri = yaml.lookup("uri", "string", Yaml::as_str)?;
-        let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)
-            .map_err(add_path_name(uri))?;
-
-        Ok(Schema { uri, schema })
-    }
-}
-
-impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["items", "type"])?;
-
-        // I'm using Option::from here because I don't actually want to transform
-        // the resulting yaml object into a specific type, but need the yaml itself
-        // to be passed into PropertyType::try_from
-        yaml.lookup("items", "yaml", Option::from)
-            .map(|inner| {
-                yaml.lookup("items", "hash", Yaml::as_hash)
-                    .map_err(add_path_name("items"))?;
-
-                Ok(SchemaArray {
-                    items: Some(Box::new(
-                        PropertyType::try_from(inner).map_err(add_path_name("items"))?,
-                    )),
-                })
-            })
-            .or_else(optional(Ok(SchemaArray { items: None })))?
-    }
-}
-
-impl<'schema> TryFrom<&'schema Yaml> for SchemaHash<'schema> {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["items", "type"])?;
-
-        // I'm using Option::from here because I don't actually want to transform
-        // the resulting yaml object into a specific type, but need the yaml itself
-        // to be passed into PropertyType::try_from
-        yaml.lookup("items", "yaml", Option::from)
-            .map(|inner| {
-                yaml.lookup("items", "hash", Yaml::as_hash)
-                    .map_err(add_path_name("items"))?;
-
-                Ok(SchemaHash {
-                    items: Some(Box::new(
-                        PropertyType::try_from(inner).map_err(add_path_name("items"))?,
-                    )),
-                })
-            })
-            .or_else(optional(Ok(SchemaHash { items: None })))?
-    }
-}
-
-impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["type"])?;
-
-        Ok(SchemaString {})
-    }
-}
-
-impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
-    type Error = SchemaError<'schema>;
-    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["type"])?;
-
-        Ok(SchemaInteger {})
-    }
+#[derive(Debug)]
+enum PropertyType<'schema> {
+    Object(SchemaObject<'schema>),
+    Array(SchemaArray<'schema>),
+    Hash(SchemaHash<'schema>),
+    String(SchemaString),
+    Integer(SchemaInteger),
+    Reference(SchemaReference<'schema>),
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
@@ -238,147 +95,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     }
 }
 
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Schema<'schema> {
-    fn validate(
-        &self,
-        ctx: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        self.schema.validate(ctx, yaml)
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReference<'schema> {
-    fn validate(
-        &self,
-        ctx: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        if let Some(schema) = ctx.get_schema(self.uri) {
-            schema.validate(ctx, yaml)
-        } else {
-            Err(SchemaErrorKind::UnknownSchema { uri: self.uri }.into())
-        }
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
-    fn validate(
-        &self,
-        _: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("string", Yaml::as_str).and_then(|_| Ok(()))
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
-    fn validate(
-        &self,
-        _: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("integer", Yaml::as_i64).and_then(|_| Ok(()))
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
-    fn validate(
-        &self,
-        ctx: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash)?;
-
-        let items: Vec<&'schema str> = self.items.keys().copied().collect();
-        yaml.strict_contents(&items, &[])?;
-
-        let mut errors: Vec<SchemaError<'yaml>> = self
-            .items
-            .iter()
-            .map(|(name, schema_item)| {
-                let item: &Yaml = yaml
-                    .lookup(name, "yaml", Option::from)
-                    .map_err(add_path_name(name))?;
-
-                schema_item
-                    .validate(ctx, item)
-                    .map_err(add_path_name(name))?;
-                Ok(())
-            })
-            .filter_map(Result::err)
-            .collect();
-
-        if errors.is_empty() {
-            Ok(())
-        } else if errors.len() == 1 {
-            Err(errors.pop().unwrap())
-        } else {
-            Err(SchemaErrorKind::Multiple { errors }.into())
-        }
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
-    fn validate(
-        &self,
-        ctx: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        let items = yaml.as_type("array", Yaml::as_vec)?;
-
-        if let Some(schema) = &self.items {
-            let mut errors: Vec<SchemaError<'yaml>> = items
-                .iter()
-                .enumerate()
-                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)))
-                .filter(Result::is_err)
-                .map(Result::unwrap_err)
-                .collect();
-
-            return if errors.is_empty() {
-                Ok(())
-            } else if errors.len() == 1 {
-                Err(errors.pop().unwrap())
-            } else {
-                Err(SchemaErrorKind::Multiple { errors }.into())
-            };
-        }
-
-        Ok(())
-    }
-}
-
-impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaHash<'schema> {
-    fn validate(
-        &self,
-        ctx: &'schema Context<'schema>,
-        yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        let items = yaml.as_type("hash", Yaml::as_hash)?;
-
-        if let Some(schema) = &self.items {
-            let mut errors: Vec<SchemaError<'yaml>> = items
-                .values()
-                .enumerate()
-                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)))
-                .filter(Result::is_err)
-                .map(Result::unwrap_err)
-                .collect();
-
-            return if errors.is_empty() {
-                Ok(())
-            } else if errors.len() == 1 {
-                Err(errors.pop().unwrap())
-            } else {
-                Err(SchemaErrorKind::Multiple { errors }.into())
-            };
-        }
-
-        Ok(())
-    }
-}
-
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
     fn validate(
         &self,
@@ -393,5 +109,63 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::Hash(p) => p.validate(ctx, yaml),
             PropertyType::Reference(p) => p.validate(ctx, yaml),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Schema<'schema> {
+    uri: &'schema str,
+    schema: PropertyType<'schema>,
+}
+
+impl<'schema> TryFrom<&'schema Yaml> for Schema<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        yaml.strict_contents(&["uri", "schema"], &[])?;
+
+        let uri = yaml.lookup("uri", "string", Yaml::as_str)?;
+        let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)
+            .map_err(add_path_name(uri))?;
+
+        Ok(Schema { uri, schema })
+    }
+}
+
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Schema<'schema> {
+    fn validate(
+        &self,
+        ctx: &'schema Context<'schema>,
+        yaml: &'yaml Yaml,
+    ) -> Result<(), SchemaError<'yaml>> {
+        self.schema.validate(ctx, yaml)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::load_simple;
+    use crate::Context;
+
+    #[test]
+    fn from_yaml() {
+        let yaml = YamlLoader::load_from_str(
+            r#"---
+uri: test
+schema:
+  type: integer
+---
+uri: another
+schema:
+  $ref: test
+"#,
+        )
+        .unwrap();
+
+        let context = Context::try_from(&yaml).unwrap();
+        let schema = context.get_schema("another").unwrap();
+        dbg!(&context);
+        dbg!(&schema);
+        schema.validate(&context, &load_simple("20")).unwrap();
     }
 }
