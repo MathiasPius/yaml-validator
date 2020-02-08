@@ -48,7 +48,7 @@ The schema format supports a very limited number of types that map very closely 
 # Examples
 All of the examples below can also be found in the [examples/](../examples/) directory.
 
-<details><summary>Using nested schemas through references</summary>
+<details><summary>Using references to avoid deeply nested and non-reusable structures</summary>
 <p>
 
 We can define a `person` object and later refer to it by its uri in a different schema `phonebook`:
@@ -157,6 +157,96 @@ $ yaml-validator-cli                \
     --schema person-schema.yaml     \
     --uri phonebook                 \
     mybook.yaml
+all files validated successfully!
+```
+---
+
+</p></details>
+
+
+<details><summary>Combining all the different types with nested references</summary>
+<p>
+
+We can define a schema in 3 levels as below, where a customer-list is defined as an array of customers, which in turn contain elements of their own, as well as references to a third schema 'car':
+
+```yaml
+# schema.yaml
+---
+uri: car
+schema:
+  type: object
+  items:
+    model:
+      type: string
+    extra features:
+      type: array
+      items:
+        type: string
+    price: 
+      type: integer
+
+---
+uri: customer
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    cars:
+      type: hash
+      items:
+        $ref: car
+
+---
+uri: customer-list
+schema:
+  type: array
+  items:
+    $ref: customer
+```
+
+Source: [examples/all-types/schema.yaml](../examples/all-types/schema.yaml)
+
+Validate the following customer list document against the defined schema:
+
+```yaml
+# customers.yaml
+---
+- name: Teodor Fælgen
+  cars:
+    work:
+      model: Ford T
+      extra features:
+        - gps
+        - heated seats
+      price: 200
+    racing:
+      model: Il Tempo Gigante
+      extra features:
+        - blood bank
+        - radar
+      price: 3000
+
+- name: Lightning McQueen
+  cars:
+    himself:
+      model: Stock
+      extra features:
+        - massive eyes instead of windows
+        - arrogance
+      price: 0
+```
+
+Source: [examples/all-types/customers.yaml](../examples/all-types/customers.yaml)
+
+
+... Using the `yaml-validator-cli` as follows:
+
+```bash
+$ yaml-validator-cli                \
+    --schema schema.yaml            \
+    --uri customer-list             \
+    customers.yaml
 all files validated successfully!
 ```
 ---

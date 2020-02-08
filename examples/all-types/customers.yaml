@@ -1,0 +1,24 @@
+---
+- name: Teodor Fælgen
+  cars:
+    work:
+      model: Ford T
+      extra features:
+        - gps
+        - heated seats
+      price: 200
+    racing:
+      model: Il Tempo Gigante
+      extra features:
+        - blood bank
+        - radar
+      price: 3000
+
+- name: Lightning McQueen
+  cars:
+    himself:
+      model: Stock
+      extra features:
+        - massive eyes instead of windows
+        - arrogance
+      price: 0
