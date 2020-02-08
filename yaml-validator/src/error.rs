@@ -49,6 +49,8 @@ pub enum SchemaErrorKind<'a> {
     UnknownSchema { uri: &'a str },
 }
 
+
+/// A wrapper type around SchemaErrorKind containing path information about where the error occurred.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SchemaError<'a> {
     pub kind: SchemaErrorKind<'a>,

@@ -13,6 +13,7 @@ pub use error::{SchemaError, SchemaErrorKind};
 
 use utils::YamlUtils;
 
+/// Validation trait implemented by all types, as well as the [Schema](crate::Schema) type
 pub trait Validate<'yaml, 'schema: 'yaml> {
     fn validate(
         &self,
@@ -135,6 +136,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
     }
 }
 
+/// A single schema unit used for validation.
 #[derive(Debug)]
 pub struct Schema<'schema> {
     uri: &'schema str,
