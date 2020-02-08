@@ -1,368 +1,202 @@
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
-
-#[cfg(test)]
-mod tests;
+use std::collections::BTreeMap;
+use std::convert::TryFrom;
+pub use yaml_rust;
+use yaml_rust::Yaml;
 
 mod error;
-use error::{ValidationResult, *};
+mod types;
+mod utils;
+use types::*;
 
-trait YamlValidator<'a> {
+use error::{add_path_name, optional};
+pub use error::{SchemaError, SchemaErrorKind};
+
+use utils::YamlUtils;
+
+/// Validation trait implemented by all types, as well as the [Schema](crate::Schema) type
+pub trait Validate<'yaml, 'schema: 'yaml> {
     fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a>;
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataNumber {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<i128>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<i128>,
-}
-
-impl<'a> YamlValidator<'a> for DataNumber {
-    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
-        if let Value::Number(_) = value {
-            Ok(())
-        } else {
-            Err(YamlValidationError::WrongType("number", value).into())
-        }
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataString {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_length: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_length: Option<usize>,
-}
-
-impl<'a> YamlValidator<'a> for DataString {
-    fn validate(&'a self, value: &'a Value, _: Option<&'a YamlContext>) -> ValidationResult<'a> {
-        if let Value::String(inner) = value {
-            if let Some(max_length) = self.max_length {
-                if inner.len() > max_length {
-                    return Err(StringValidationError::TooLong(max_length, inner.len()).into());
-                }
-            }
-
-            if let Some(min_length) = self.min_length {
-                if inner.len() < min_length {
-                    return Err(StringValidationError::TooShort(min_length, inner.len()).into());
-                }
-            }
-
-            Ok(())
-        } else {
-            Err(YamlValidationError::WrongType("string", value).into())
-        }
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataReference {
-    pub uri: String,
-}
-
-impl<'a> YamlValidator<'a> for DataReference {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        if let Some(ctx) = context {
-            if let Some(schema) = ctx.lookup(&self.uri) {
-                return DataObject::validate(&schema.schema, value, context);
-            }
-            return Err(YamlValidationError::MissingSchema(&self.uri).into());
-        }
-        Err(YamlValidationError::MissingContext.into())
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataDictionary {
-    pub value: Option<Box<PropertyType>>,
-}
-
-impl<'a> YamlValidator<'a> for DataDictionary {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        if let Value::Mapping(dict) = value {
-            for item in dict.iter() {
-                if let Some(ref value) = self.value {
-                    value.validate(item.1, context).prepend(format!(
-                        ".{}",
-                        item.0.as_str().unwrap_or("<non-string field>")
-                    ))?;
-                }
-            }
-            Ok(())
-        } else {
-            Err(YamlValidationError::WrongType("dictionary", value).into())
-        }
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataList {
-    pub inner: Box<PropertyType>,
-}
-
-impl<'a> YamlValidator<'a> for DataList {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        if let serde_yaml::Value::Sequence(items) = value {
-            for (i, item) in items.iter().enumerate() {
-                self.inner
-                    .validate(item, context)
-                    .prepend(format!("[{}]", i))?;
-            }
-            Ok(())
-        } else {
-            Err(YamlValidationError::WrongType("list", value).into())
-        }
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct DataObject {
-    pub fields: Vec<Property>,
-}
-
-impl DataObject {
-    pub fn validate<'a>(
-        properties: &'a [Property],
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        if let Value::Mapping(ref obj) = value {
-            for prop in properties.iter() {
-                if let Some(field) = obj.get(&serde_yaml::to_value(&prop.name).unwrap()) {
-                    prop.datatype
-                        .validate(field, context)
-                        .prepend(format!(".{}", prop.name))?
-                } else {
-                    return Err(YamlValidationError::MissingField(&prop.name).into());
-                }
-            }
-            Ok(())
-        } else {
-            Err(YamlValidationError::WrongType("object", value).into())
-        }
-    }
-}
-
-impl<'a> YamlValidator<'a> for DataObject {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        DataObject::validate(&self.fields, value, context)
-    }
-}
-
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "lowercase", tag = "type")]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-enum PropertyType {
-    #[serde(rename = "number")]
-    Number(DataNumber),
-    #[serde(rename = "string")]
-    String(DataString),
-    #[serde(rename = "list")]
-    List(DataList),
-    #[serde(rename = "dictionary")]
-    Dictionary(DataDictionary),
-    #[serde(rename = "object")]
-    Object(DataObject),
-    #[serde(rename = "reference")]
-    Reference(DataReference),
-}
-
-impl<'a> YamlValidator<'a> for PropertyType {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        match self {
-            PropertyType::Number(p) => p.validate(value, context),
-            PropertyType::String(p) => p.validate(value, context),
-            PropertyType::List(p) => p.validate(value, context),
-            PropertyType::Dictionary(p) => p.validate(value, context),
-            PropertyType::Object(p) => p.validate(value, context),
-            PropertyType::Reference(p) => p.validate(value, context),
-        }
-    }
-}
-
-#[serde(rename_all = "lowercase")]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Property {
-    pub name: String,
-    #[serde(flatten)]
-    pub datatype: PropertyType,
-}
-
-/// Struct containing a list of internal properties as defined in its top-level `schema` field
-#[derive(Serialize, Deserialize, Debug)]
-pub struct YamlSchema {
-    uri: Option<String>,
-    schema: Vec<Property>,
-}
-
-impl YamlSchema {
-    /// Validate a single yaml document against this schema
-    /// # Examples
-    /// This example specifies a single schema, and validates two separate yaml documents against it
-    /// ```rust
-    /// # use yaml_validator::YamlSchema;
-    /// # use std::str::FromStr;
-    /// #
-    /// let schema = YamlSchema::from_str(r#"
-    /// ---
-    /// schema:
-    ///   - name: firstname
-    ///     type: string
-    /// "#).unwrap();
-    ///
-    /// assert!(schema.validate_str("firstname: John", None).is_ok());
-    /// assert!(!schema.validate_str("lastname: Smith", None).is_ok())
-    /// ```
-    pub fn validate_str(
         &self,
-        yaml: &str,
-        context: Option<&YamlContext>,
-    ) -> std::result::Result<(), String> {
-        match self.validate(
-            &serde_yaml::from_str(yaml).expect("failed to parse string as yaml"),
-            context,
-        ) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(format!("{}", e)),
-        }
-    }
+        ctx: &'schema Context<'schema>,
+        yaml: &'yaml Yaml,
+    ) -> Result<(), SchemaError<'yaml>>;
 }
 
-/// Can I add comments to implementations?
-impl std::str::FromStr for YamlSchema {
-    type Err = serde_yaml::Error;
-    fn from_str(schema: &str) -> std::result::Result<YamlSchema, Self::Err> {
-        serde_yaml::from_str(schema)
-    }
-}
-
-impl<'a> YamlValidator<'a> for YamlSchema {
-    fn validate(
-        &'a self,
-        value: &'a Value,
-        context: Option<&'a YamlContext>,
-    ) -> ValidationResult<'a> {
-        DataObject::validate(&self.schema, value, context).prepend("$".into())
-    }
-}
-
-/// Context containing a list of schemas
+/// Contains a number of schemas that may or may not be dependent on each other.
 #[derive(Debug, Default)]
-pub struct YamlContext {
-    schemas: Vec<YamlSchema>,
+pub struct Context<'schema> {
+    schemas: BTreeMap<&'schema str, Schema<'schema>>,
 }
 
-impl YamlContext {
-    /// Take ownership of a vector of schemas and use those to produce a context
+impl<'schema> Context<'schema> {
+    /// Get a reference to a single schema within the context to use for validation.
+    ///
     /// # Examples
-    /// ```rust
-    /// # use yaml_validator::{YamlSchema, YamlContext};
-    /// # use std::str::FromStr;
-    /// #
-    /// let person = YamlSchema::from_str(r#"
-    /// uri: example/person
-    /// schema:
-    ///   - name: firstname
-    ///     type: string
-    /// "#).unwrap();
     ///
-    /// let context = YamlContext::from_schemas(vec![person]);
+    /// ```rust
+    /// # use yaml_rust::YamlLoader;
+    /// # use std::convert::TryFrom;
+    /// # use yaml_validator::{Validate, Context};
+    /// #
+    /// let schemas = vec![
+    ///     YamlLoader::load_from_str(r#"
+    ///         uri: just-a-number
+    ///         schema:
+    ///             type: integer
+    ///     "#).unwrap().remove(0)
+    /// ];
+    ///
+    /// let context = Context::try_from(&schemas).unwrap();
+    /// let document = YamlLoader::load_from_str("10").unwrap().remove(0);
+    ///
+    /// context.get_schema("just-a-number").unwrap()
+    ///     .validate(&context, &document).unwrap();
     /// ```
-    pub fn from_schemas(schemas: Vec<YamlSchema>) -> Self {
-        YamlContext { schemas }
+    pub fn get_schema(&self, uri: &str) -> Option<&Schema<'schema>> {
+        self.schemas.get(uri)
     }
+}
 
-    /// Move a new schema into an existing context
-    /// ```rust
-    /// # use yaml_validator::{YamlSchema, YamlContext};
-    /// # use std::str::FromStr;
-    /// #
-    /// # let person = YamlSchema::from_str(r#"
-    /// # uri: example/person
-    /// # schema:
-    /// #   - name: firstname
-    /// #     type: string
-    /// # "#).unwrap();
-    /// #
-    /// # let mut context = YamlContext::from_schemas(vec![person]);
-    /// #
-    /// let phonebook = YamlSchema::from_str(r#"
-    /// schema:
-    ///   - name: people
-    ///     type: reference
-    ///     uri: example/person
-    /// "#).unwrap();
-    ///
-    /// context.add_schema(phonebook);
-    /// ```
-    pub fn add_schema(&mut self, schema: YamlSchema) {
-        self.schemas.push(schema);
-    }
+/// A context can only be created from a vector of Yaml documents, all of which must fit the schema layout.
+impl<'schema> TryFrom<&'schema Vec<Yaml>> for Context<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(documents: &'schema Vec<Yaml>) -> Result<Self, Self::Error> {
+        let (schemas, errs): (Vec<_>, Vec<_>) = documents
+            .iter()
+            .map(Schema::try_from)
+            .partition(Result::is_ok);
 
-    /// Lookup a schema by uri within a YamlContext
-    /// # Examples
-    /// ```rust
-    /// # use yaml_validator::{YamlSchema, YamlContext};
-    /// # use std::str::FromStr;
-    /// #
-    /// let person = YamlSchema::from_str(r#"
-    /// uri: example/person
-    /// schema:
-    ///   - name: firstname
-    ///     type: string
-    /// "#).unwrap();
-    ///
-    /// let context = YamlContext::from_schemas(vec![person]);
-    ///
-    /// assert!(context.lookup("example/person").is_some())
-    /// ```
-    pub fn lookup(&self, uri: &str) -> Option<&YamlSchema> {
-        for schema in self.schemas.iter() {
-            if let Some(ref schema_uri) = schema.uri {
-                if schema_uri == uri {
-                    return Some(&schema);
-                }
+        if !errs.is_empty() {
+            let mut errors: Vec<SchemaError<'schema>> =
+                errs.into_iter().map(Result::unwrap_err).collect();
+            if errors.len() == 1 {
+                return Err(errors.pop().unwrap());
+            } else {
+                return Err(SchemaErrorKind::Multiple { errors }.into());
             }
         }
-        None
-    }
 
-    /// Returns an immutable list of the schemas currently available within the YamlContext
-    pub fn schemas(&self) -> &Vec<YamlSchema> {
-        &self.schemas
+        Ok(Context {
+            schemas: schemas
+                .into_iter()
+                .map(Result::unwrap)
+                .map(|schema| (schema.uri, schema))
+                .collect(),
+        })
+    }
+}
+
+#[derive(Debug)]
+enum PropertyType<'schema> {
+    Object(SchemaObject<'schema>),
+    Array(SchemaArray<'schema>),
+    Hash(SchemaHash<'schema>),
+    String(SchemaString),
+    Integer(SchemaInteger),
+    Real(SchemaReal),
+    Reference(SchemaReference<'schema>),
+}
+
+impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        let reference = yaml
+            .lookup("$ref", "string", Yaml::as_str)
+            .map(Option::from)
+            .or_else(optional(None))?;
+
+        if let Some(uri) = reference {
+            return Ok(PropertyType::Reference(SchemaReference { uri }));
+        }
+
+        let typename = yaml.lookup("type", "string", Yaml::as_str)?;
+
+        match typename {
+            "object" => Ok(PropertyType::Object(SchemaObject::try_from(yaml)?)),
+            "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
+            "integer" => Ok(PropertyType::Integer(SchemaInteger::try_from(yaml)?)),
+            "real" => Ok(PropertyType::Real(SchemaReal::try_from(yaml)?)),
+            "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
+            "hash" => Ok(PropertyType::Hash(SchemaHash::try_from(yaml)?)),
+            unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
+        }
+    }
+}
+
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
+    fn validate(
+        &self,
+        ctx: &'schema Context<'schema>,
+        yaml: &'yaml Yaml,
+    ) -> Result<(), SchemaError<'yaml>> {
+        match self {
+            PropertyType::Integer(p) => p.validate(ctx, yaml),
+            PropertyType::Real(p) => p.validate(ctx, yaml),
+            PropertyType::String(p) => p.validate(ctx, yaml),
+            PropertyType::Object(p) => p.validate(ctx, yaml),
+            PropertyType::Array(p) => p.validate(ctx, yaml),
+            PropertyType::Hash(p) => p.validate(ctx, yaml),
+            PropertyType::Reference(p) => p.validate(ctx, yaml),
+        }
+    }
+}
+
+/// A single schema unit used for validation.
+#[derive(Debug)]
+pub struct Schema<'schema> {
+    uri: &'schema str,
+    schema: PropertyType<'schema>,
+}
+
+impl<'schema> TryFrom<&'schema Yaml> for Schema<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        yaml.strict_contents(&["uri", "schema"], &[])?;
+
+        let uri = yaml.lookup("uri", "string", Yaml::as_str)?;
+        let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)
+            .map_err(add_path_name(uri))?;
+
+        Ok(Schema { uri, schema })
+    }
+}
+
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Schema<'schema> {
+    fn validate(
+        &self,
+        ctx: &'schema Context<'schema>,
+        yaml: &'yaml Yaml,
+    ) -> Result<(), SchemaError<'yaml>> {
+        self.schema.validate(ctx, yaml)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::load_simple;
+    use crate::Context;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn from_yaml() {
+        let yaml = YamlLoader::load_from_str(
+            r#"---
+uri: test
+schema:
+  type: integer
+---
+uri: another
+schema:
+  $ref: test
+"#,
+        )
+        .unwrap();
+
+        let context = Context::try_from(&yaml).unwrap();
+        let schema = context.get_schema("another").unwrap();
+        dbg!(&context);
+        dbg!(&schema);
+        schema.validate(&context, &load_simple("20")).unwrap();
     }
 }

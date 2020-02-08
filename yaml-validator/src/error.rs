@@ -1,91 +1,200 @@
 use thiserror::Error;
 
-pub(crate) type ValidationResult<'a> =
-    std::result::Result<(), StatefulResult<YamlValidationError<'a>>>;
-
-pub(crate) struct StatefulResult<E> {
-    pub error: E,
-    pub path: Vec<String>,
+#[derive(Debug, PartialEq, Eq)]
+pub enum PathSegment<'a> {
+    Name(&'a str),
+    Index(usize),
 }
 
-impl<'a> std::fmt::Display for StatefulResult<YamlValidationError<'a>> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct State<'a> {
+    path: Vec<PathSegment<'a>>,
+}
+
+impl<'a> std::fmt::Display for State<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for segment in self.path.iter().rev() {
-            write!(f, "{}", segment)?;
+            match segment {
+                PathSegment::Name(name) => write!(f, ".{}", name)?,
+                PathSegment::Index(index) => write!(f, "[{}]", index)?,
+            };
         }
-        write!(f, ": {}", self.error)
+
+        Ok(())
     }
 }
 
-pub trait PathContext<'a> {
-    fn prepend(self, segment: String) -> Self;
-}
-
-impl<'a> PathContext<'a> for ValidationResult<'a> {
-    fn prepend(self, segment: String) -> Self {
-        self.map_err(|mut state| {
-            state.path.push(segment);
-            state
-        })
+impl<'a> Default for State<'a> {
+    fn default() -> Self {
+        State { path: vec![] }
     }
 }
 
-impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for YamlValidationError<'a> {
-    fn into(self) -> StatefulResult<YamlValidationError<'a>> {
-        StatefulResult {
-            error: self,
-            path: vec![],
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum SchemaErrorKind<'a> {
+    #[error("wrong type, expected {expected} got {actual}")]
+    WrongType {
+        expected: &'static str,
+        actual: &'a str,
+    },
+    #[error("field '{field}' missing")]
+    FieldMissing { field: &'a str },
+    #[error("field '{field}' is not specified in the schema")]
+    ExtraField { field: &'a str },
+    #[error("unknown type specified: {unknown_type}")]
+    UnknownType { unknown_type: &'a str },
+    #[error("multiple errors were encountered: {errors:?}")]
+    Multiple { errors: Vec<SchemaError<'a>> },
+    #[error("schema '{uri}' references was not found")]
+    UnknownSchema { uri: &'a str },
+}
+
+/// A wrapper type around SchemaErrorKind containing path information about where the error occurred.
+#[derive(Debug, PartialEq, Eq)]
+pub struct SchemaError<'a> {
+    pub kind: SchemaErrorKind<'a>,
+    pub state: State<'a>,
+}
+
+impl<'a> SchemaError<'a> {
+    fn flatten(&self, fmt: &mut std::fmt::Formatter<'_>, root: String) -> std::fmt::Result {
+        match &self.kind {
+            SchemaErrorKind::Multiple { errors } => {
+                for err in errors {
+                    err.flatten(fmt, format!("{}{}", root, self.state))?;
+                }
+            }
+            err => writeln!(fmt, "{}{}: {}", root, self.state, err)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> std::fmt::Display for SchemaError<'a> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.flatten(fmt, "#".to_string())
+    }
+}
+
+#[cfg(test)]
+impl<'a> SchemaErrorKind<'a> {
+    pub fn with_path(self, path: Vec<PathSegment<'a>>) -> SchemaError<'a> {
+        SchemaError {
+            kind: self,
+            state: State { path },
         }
     }
 }
 
-impl<'a> Into<StatefulResult<YamlValidationError<'a>>> for StringValidationError {
-    fn into(self) -> StatefulResult<YamlValidationError<'a>> {
-        StatefulResult {
-            error: self.into(),
-            path: vec![],
+pub fn add_path_name<'a>(path: &'a str) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+    move |mut err: SchemaError<'a>| -> SchemaError<'a> {
+        err.state.path.push(PathSegment::Name(path));
+        err
+    }
+}
+
+pub fn add_path_index<'a>(index: usize) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+    move |mut err: SchemaError<'a>| -> SchemaError<'a> {
+        err.state.path.push(PathSegment::Index(index));
+        err
+    }
+}
+
+pub fn optional<'a, T>(default: T) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
+    move |err: SchemaError<'a>| -> Result<T, SchemaError<'a>> {
+        match err.kind {
+            SchemaErrorKind::FieldMissing { .. } => Ok(default),
+            _ => Err(err),
         }
     }
 }
 
-#[derive(Error, Debug)]
-pub enum YamlValidationError<'a> {
-    #[error("number validation error: {0}")]
-    NumberValidationError(#[from] NumberValidationError),
-    #[error("string validation error: {0}")]
-    StringValidationError(#[from] StringValidationError),
-    #[error("list validation error: {0}")]
-    ListValidationError(#[from] ListValidationError),
-    #[error("dictionary validation error: {0}")]
-    DictionaryValidationError(#[from] DictionaryValidationError),
-    #[error("object validation error: {0}")]
-    ObjectValidationError(#[from] ObjectValidationError),
-    #[error("wrong type, expected `{0}` got `{1:?}`")]
-    WrongType(&'static str, &'a serde_yaml::Value),
-    #[error("missing field, `{0}` not found")]
-    MissingField(&'a str),
-    #[error("missing schema, `{0}` not found")]
-    MissingSchema(&'a str),
-    #[error("no context defined, but schema references other schema")]
-    MissingContext,
+impl<'a> Into<SchemaError<'a>> for SchemaErrorKind<'a> {
+    fn into(self) -> SchemaError<'a> {
+        SchemaError {
+            kind: self,
+            state: State::default(),
+        }
+    }
 }
 
-#[derive(Error, Debug)]
-pub enum NumberValidationError {}
+#[cfg(test)]
+mod tests {
+    use crate::types::*;
+    use crate::utils::load_simple;
+    use crate::{Context, Validate};
+    use std::convert::TryFrom;
+    #[test]
+    fn test_error_path() {
+        let yaml = load_simple(
+            r#"
+            items:
+              test:
+                type: integer
+              something:
+                type: object
+                items:
+                  level2:
+                    type: object
+                    items:
+                      leaf: hello
+            "#,
+        );
 
-#[derive(Error, Debug)]
-pub enum StringValidationError {
-    #[error("string too long, max is {0}, but string is {1}")]
-    TooLong(usize, usize),
-    #[error("string too short, min is {0}, but string is {1}")]
-    TooShort(usize, usize),
+        let err = SchemaObject::try_from(&yaml).unwrap_err();
+
+        assert_eq!(
+            format!("{}", err),
+            "#.items.something.items.level2.items.leaf: field \'type\' missing\n",
+        );
+    }
+
+    #[test]
+    fn test_error_path_validation() {
+        let yaml = load_simple(
+            r#"
+            items:
+              test:
+                type: integer
+              something:
+                type: object
+                items:
+                  level2:
+                    type: array
+                    items:
+                      type: object
+                      items:
+                        num:
+                          type: integer
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+        let document = load_simple(
+            r#"
+            test: 20
+            something:
+              level2:
+                - num: abc
+                - num:
+                    hash: value
+                - num:
+                    - array: hello
+                - num: 10
+                - num: jkl
+            "#,
+        );
+        let ctx = Context::default();
+        let err = schema.validate(&ctx, &document).unwrap_err();
+
+        assert_eq!(
+            format!("{}", err),
+            r#"#.something.level2[0].num: wrong type, expected integer got string
+#.something.level2[1].num: wrong type, expected integer got hash
+#.something.level2[2].num: wrong type, expected integer got array
+#.something.level2[4].num: wrong type, expected integer got string
+"#
+        );
+    }
 }
-
-#[derive(Error, Debug)]
-pub enum ListValidationError {}
-
-#[derive(Error, Debug)]
-pub enum DictionaryValidationError {}
-
-#[derive(Error, Debug)]
-pub enum ObjectValidationError {}

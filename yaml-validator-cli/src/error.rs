@@ -1,8 +1,11 @@
+use yaml_validator::{yaml_rust::ScanError, SchemaError};
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     FileError(String),
     ValidationError(String),
     YamlError(String),
-    InputError(String),
+    Multiple(Vec<Error>),
 }
 
 impl From<std::io::Error> for Error {
@@ -11,9 +14,15 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<serde_yaml::Error> for Error {
-    fn from(e: serde_yaml::Error) -> Self {
+impl From<ScanError> for Error {
+    fn from(e: ScanError) -> Self {
         Error::YamlError(format!("{}", e))
+    }
+}
+
+impl<'a> From<SchemaError<'a>> for Error {
+    fn from(e: SchemaError<'a>) -> Self {
+        Error::ValidationError(format!("{}", e))
     }
 }
 
@@ -23,7 +32,12 @@ impl<'a> std::fmt::Display for Error {
             Error::FileError(e) => write!(f, "{}", e),
             Error::ValidationError(e) => write!(f, "{}", e),
             Error::YamlError(e) => write!(f, "{}", e),
-            Error::InputError(e) => write!(f, "{}", e),
+            Error::Multiple(e) => {
+                for err in e {
+                    write!(f, "{}", err)?;
+                }
+                Ok(())
+            }
         }
     }
 }

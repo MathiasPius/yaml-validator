@@ -1,8 +1,11 @@
+use std::convert::TryFrom;
 use std::fs::read;
 use std::path::PathBuf;
-use std::str::FromStr;
 use structopt::StructOpt;
-use yaml_validator::{YamlContext, YamlSchema};
+use yaml_validator::{
+    yaml_rust::{Yaml, YamlLoader},
+    Context, Validate,
+};
 
 mod error;
 use error::Error;
@@ -23,12 +26,8 @@ struct Opt {
     )]
     schemas: Vec<PathBuf>,
 
-    #[structopt(
-        short,
-        long,
-        help = "URI of the schema to validate the files against. If not supplied, the last schema added will be used for validation."
-    )]
-    uri: Option<String>,
+    #[structopt(short, long, help = "URI of the schema to validate the files against.")]
+    uri: String,
 
     #[structopt(
         parse(from_os_str),
@@ -37,64 +36,202 @@ struct Opt {
     files: Vec<PathBuf>,
 }
 
-fn read_file(filename: &PathBuf) -> Result<String, std::io::Error> {
-    Ok(String::from_utf8_lossy(&read(filename).unwrap())
-        .parse()
-        .unwrap())
+fn read_file(filename: &PathBuf) -> Result<String, Error> {
+    let contents = read(filename).map_err(|e| {
+        Error::FileError(format!(
+            "could not read file {}: {}\n",
+            filename.to_string_lossy(),
+            e
+        ))
+    })?;
+
+    let utf8 = String::from_utf8_lossy(&contents).parse().map_err(|e| {
+        Error::FileError(format!(
+            "file {} did not contain valid utf8: {}\n",
+            filename.to_string_lossy(),
+            e
+        ))
+    })?;
+
+    Ok(utf8)
 }
 
-fn secret_main(opt: &Opt) -> Result<(), Error> {
-    let mut context = YamlContext::default();
+fn load_yaml(filenames: &Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
+    let (yaml, errs): (Vec<_>, Vec<_>) = filenames
+        .iter()
+        .map(|file| {
+            read_file(&file)
+                .and_then(|source| YamlLoader::load_from_str(&source).map_err(Error::from))
+        })
+        .partition(Result::is_ok);
 
-    for schemafile in opt.schemas.iter() {
-        let content = read_file(&schemafile)?;
-        let yaml = YamlSchema::from_str(&content)?;
-        context.add_schema(yaml);
+    if !errs.is_empty() {
+        Err(errs.into_iter().map(Result::unwrap_err).collect())
+    } else {
+        Ok(yaml.into_iter().map(Result::unwrap).flatten().collect())
+    }
+}
+
+// Ideally this would just be the real main function, but since errors are
+// automatically printed using the Debug trait rather than Display, the error
+// messages are not very easy to read.
+fn actual_main(opt: Opt) -> Result<(), Error> {
+    if opt.schemas.is_empty() {
+        return Err(Error::ValidationError(
+            "no schemas supplied, see the --schema option for information\n".into(),
+        ));
     }
 
+    if opt.files.is_empty() {
+        return Err(Error::ValidationError(
+            "no files to validate were supplied, use --help for more information\n".into(),
+        ));
+    }
+
+    let yaml_schemas = load_yaml(&opt.schemas).map_err(Error::Multiple)?;
+    let context = Context::try_from(&yaml_schemas)?;
+
     let schema = {
-        if let Some(uri) = &opt.uri {
-            if let Some(schema) = context.lookup(&uri) {
-                schema
-            } else {
-                return Err(Error::ValidationError(format!(
-                    "Schema referenced by uri `{}` not found in context",
-                    uri
-                )));
-            }
-        } else if let Some(schema) = context.schemas().last() {
+        if let Some(schema) = context.get_schema(&opt.uri) {
             schema
         } else {
-            return Err(Error::InputError(
-                "No schemas supplied, see the --schema option for information".into(),
-            ));
+            return Err(Error::ValidationError(format!(
+                "schema referenced by uri `{}` not found in context\n",
+                opt.uri
+            )));
         }
     };
 
-    for yamlfile in opt.files.iter() {
-        let yaml = read_file(&yamlfile)?;
-        schema
-            .validate_str(&yaml, Some(&context))
-            .map_err(|e| Error::ValidationError(format!("{:?}: {}", yamlfile, e)))?;
-        println!("valid: {:?}", &yamlfile);
+    let documents = opt
+        .files
+        .iter()
+        .zip(load_yaml(&opt.files).map_err(Error::Multiple)?);
+
+    for (name, doc) in documents {
+        schema.validate(&context, &doc).map_err(|err| {
+            Error::ValidationError(format!(
+                "{name}:\n{err}",
+                name = name.to_string_lossy(),
+                err = err
+            ))
+        })?;
     }
 
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
 
-    match secret_main(&opt) {
-        Ok(()) => println!("All files validated successfully!"),
+    match actual_main(opt) {
+        Ok(()) => println!("all files validated successfully!"),
         Err(e) => {
-            match e {
-                Error::InputError(e) => {
-                    println!("{}", e);
-                }
-                _ => println!("failed: {}", e),
-            }
+            eprint!("{}", e);
             std::process::exit(1);
         }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_all_types_example() {
+        actual_main(Opt {
+            schemas: vec!["../examples/all-types/schema.yaml".into()],
+            files: vec!["../examples/all-types/customers.yaml".into()],
+            uri: "customer-list".into(),
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_multiple_schemas_example() {
+        actual_main(Opt {
+            schemas: vec![
+                "../examples/multiple-schemas/person-schema.yaml".into(),
+                "../examples/multiple-schemas/phonebook-schema.yaml".into(),
+            ],
+            files: vec!["../examples/multiple-schemas/mybook.yaml".into()],
+            uri: "phonebook".into(),
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_nesting_example() {
+        actual_main(Opt {
+            schemas: vec!["../examples/nesting/schema.yaml".into()],
+            files: vec!["../examples/nesting/mybook.yaml".into()],
+            uri: "phonebook".into(),
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_locating_errors_example() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/locating-errors/schema.yaml".into()],
+                files: vec!["../examples/locating-errors/phonebook.yaml".into()],
+                uri: "phonebook".into(),
+            })
+            .unwrap_err(),
+            Error::ValidationError(
+                "../examples/locating-errors/phonebook.yaml:
+#[1].age: wrong type, expected integer got real
+#[2].age: wrong type, expected integer got string
+#[2].name: wrong type, expected string got integer
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn test_non_existent_schema_file() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["not_found.yaml".into()],
+                files: vec!["".into()],
+                uri: "".into(),
+            })
+            .unwrap_err(),
+            Error::Multiple(vec![Error::FileError(
+                "could not read file not_found.yaml: No such file or directory (os error 2)\n"
+                    .into()
+            )])
+        );
+    }
+
+    #[test]
+    fn test_non_existent_file() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/nesting/schema.yaml".into()],
+                files: vec!["not_found.yaml".into()],
+                uri: "person".into(),
+            })
+            .unwrap_err(),
+            Error::Multiple(vec![Error::FileError(
+                "could not read file not_found.yaml: No such file or directory (os error 2)\n"
+                    .into()
+            )])
+        );
+    }
+
+    #[test]
+    fn test_unknown_schema_uri() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/nesting/schema.yaml".into()],
+                files: vec!["../examples/nesting/mybook.yaml".into()],
+                uri: "not-found".into(),
+            })
+            .unwrap_err(),
+            Error::ValidationError("schema referenced by uri `not-found` not found in context\n".into())
+        );
     }
 }

@@ -1,0 +1,9 @@
+---
+uri: phonebook
+schema:
+  type: object
+  items:
+    phonebook:
+      type: array
+      items:
+        $ref: person

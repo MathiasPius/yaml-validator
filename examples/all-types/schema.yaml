@@ -1,0 +1,34 @@
+---
+uri: car
+schema:
+  type: object
+  items:
+    year:
+      type: integer
+    model:
+      type: string
+    extra features:
+      type: array
+      items:
+        type: string
+    price: 
+      type: real
+
+---
+uri: customer
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    cars:
+      type: hash
+      items:
+        $ref: car
+
+---
+uri: customer-list
+schema:
+  type: array
+  items:
+    $ref: customer

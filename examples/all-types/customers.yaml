@@ -1,0 +1,33 @@
+---
+- name: Teodor Fælgen
+  cars:
+    work:
+      year: 1908
+      model: Ford T
+      extra features:
+        - gps
+        - heated seats
+      price: 200.00
+    racing:
+      year: 1975
+      model: Il Tempo Gigante
+      extra features:
+        - blood bank
+        - radar
+      price: 3000.00
+
+- name: Lightning McQueen
+  cars:
+    himself:
+      year: 2006
+      model: Stock
+      extra features:
+        - massive eyes instead of windows
+        - arrogance
+      price: 0.00
+
+# example usage:
+# yaml-validator-cli                          \
+#     --schema examples/all-types/schema.yaml \
+#     --uri customer-list                     \
+#     examples/all-types/customers.yaml

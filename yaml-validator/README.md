@@ -1,7 +1,6 @@
-# yaml-validator [![Test Status]][library tests] [![Latest Version]][crates.io] [![Docs]][docs.rs]
+# yaml-validator ![Test Status] [![Latest Version]][crates.io] [![Docs]][docs.rs]
 
 [Test Status]: https://github.com/MathiasPius/yaml-validator/workflows/library-tests/badge.svg
-[library tests]: src/tests.rs
 [Latest Version]: https://img.shields.io/crates/v/yaml-validator
 [crates.io]: https://crates.io/crates/yaml-validator
 [Docs]: https://docs.rs/yaml-validator/badge.svg

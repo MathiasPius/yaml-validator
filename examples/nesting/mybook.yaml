@@ -1,0 +1,12 @@
+---
+phonebook:
+  - name: timmy
+    phone: 123456
+  - name: tammy
+    phone: 987654
+
+# example usage:
+# yaml-validator-cli                        \
+#     --schema examples/nesting/schema.yaml \
+#     --uri phonebook                       \
+#     examples/nesting/mybook.yaml

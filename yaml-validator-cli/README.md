@@ -9,259 +9,309 @@ Quick Links:
 <p>
 
 ```
-yaml-validator-cli 0.0.2
+yaml-validator-cli 0.1.0
     Command-line interface to the yaml-validator library.
     Use it to validate YAML files against a context of any number of cross-referencing schema files.
     The schema format is proprietary, and does not offer compatibility with any other known YAML tools
 
 USAGE:
-    yaml-validator-cli [OPTIONS] [--] [files]...
+    yaml-validator-cli [OPTIONS] --uri <uri> [--] [files]...
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
-    -s, --schema <schemas>...     Schemas to include in context to validate against. Schemas are added in order, but do
-                                  not validate references to other schemas upon loading.
-    -u, --uri <uri>               URI of the schema to validate the files against. If not supplied, the last schema
-                                  added will be used for validation.
+    -s, --schema <schemas>...    Schemas to include in context to validate against. Schemas are added in order, but do
+                                 not validate references to other schemas upon loading.
+    -u, --uri <uri>              URI of the schema to validate the files against.
 
 ARGS:
     <files>...    Files to validate against the selected schemas.
 ```
 </p></details>
 
-## Supported datatypes
+## Currently supported datatypes
 The schema format supports a very limited number of types that map very closely to the YAML specification:
 
- * `string`
-    * `min_length: number` (optional)
-    * `max_length: number` (optional)
- * `number`
- * `dictionary`
-    * `key` (optional)
-       * `type: <type>` should always be string really, will be removed.
-    * `value` (optional)
-       * `type: <type>` type of the value in the dictionary.
- * `list`
-    * `type: <type>` required, but will be made optional.
- * `object`
-    * `fields` struct with known fields (unlike a dictionary). List of:
-       * `name: string`
-       * `type: <type>`
- * `reference`
-    * `uri: string` uri of the schema this property references
-
-Here's an example schema file containing two interdependent schemas using a bit of all of the above types:
-
-Source: [acquaintance.yaml](yaml-validator-cli/examples/acquaintance.yaml) and [phonebook.yaml](yaml-validator-cli/examples/phonebook.yaml)
-<details><summary>View contents of acquaintance.yaml</summary>
-<p>
-
-```yaml
----
-uri: examples/0.0.3/acquaintance
-schema:
-  - name: firstname
-    type: string
-    max_length: 20
-  - name: age
-    type: number
-  - name: favorite_foods
-    type: list
-    inner:
-      type: string
-  - name: movie_scores
-    type: dictionary
-    value:
-      type: number
-```
-</p></details>
-
-<details><summary>View contents of phonebook.yaml</summary>
-<p>
-
-```yaml
----
-uri: examples/0.0.3/phonebook
-schema:
-  - name: friends
-    type: list
-    inner:
-      type: reference
-      uri: examples/0.0.3/acquaintance
-  - name: colleagues
-    type: list
-    inner: 
-      type: object
-      fields:
-        - name: name
-          type: string
-        - name: department
-          type: string
-```
-</p></details>
-
-And a sample yaml file we can validate with the above schema:
-```yaml
----
-friends:
-  - firstname: John
-    age: 58
-    favorite_foods:
-      - Spaghetti
-      - Lasagna
-    movie_scores:
-      The Room: 2.3
-      Good Will Hunting: 8.3
-colleagues:
-  - name: Peter
-    department: HR
-  - name: Harry
-    department: Finance
-```
-Test the above yaml using [peopleiknow.yaml](yaml-validator-cli/examples/peopleiknow.yaml):
-```bash
-$ yaml-validator-cli            \
-    --schema acquaintance.yaml  \
-    --schema phonebook.yaml     \
-    peopleiknow.yaml
-valid: "peopleiknow.yaml"
-All files validated successfully!
-```
+ * `string` utf8-compliant string
+ * `integer` i64 integer
+ * `real` f64 floating point value
+ * `hash` (also know as `dictionary` or `hashmap`) that maps `string ➞ <type>` as defined in `items`
+    * `items: <type>` (optional) type of the values in the hash
+ * `array` array of items of type `<type>`
+    * `items: <type>` (optional) type of the values in the array.
+ * `object` struct with known fields (unlike a hash).
+    * `items` array of fields and their types as below
+       * `<name>: <type>`
+ * `$ref: <uri>` reference to schema in same context identified by `<uri>`
 
 # Examples
-All the example yaml files and schemas below can be found in the [yaml-validator-cli/examples](yaml-validator-cli/examples/) directory.
-## Validating a single YAML file against a single schema
-You can use the command line tool to test a single yaml file against a single schema, by first defining a schema file and a yaml file to test it against:
+All of the examples below can also be found in the [examples/](../examples/) directory.
 
-Schema: [person.yaml](yaml-validator-cli/examples/person.yaml)
+<details><summary>Using references to avoid deeply nested and non-reusable structures</summary>
+<p>
+
+We can define a `person` object and later refer to it by its uri in a different schema `phonebook`:
+
 ```yaml
+# phonebook.yaml
 ---
+uri: person
 schema:
-  - name: firstname
-    type: string
-  - name: age
-    type: number
-```
+  type: object
+  items:
+    name:
+      type: string
+    phone:
+      type: integer
 
-YAML-file: [johnsmith.yaml](yaml-validator-cli/examples/johnsmith.yaml)
-```yaml
 ---
-firstname: John
-age: 58
-```
-Run the command with the above schema and user file:
-```bash
-$ yaml-validator-cli --schema person.yaml johnsmith.yaml
-valid: "johnsmith.yaml"
-All files validated successfully!
-```
-
-## Validating multiple files against a single schema
-For this example, we'll re-use the files from before, but add some more people
-
-YAML-file: [janedoe.yaml](yaml-validator-cli/examples/janedoe.yaml)
-```yaml
----
-firstname: Jane
-age: 33
-```
-
-YAML-file: [malfoy.yaml](yaml-validator-cli/examples/malfoy.yaml)
-```yaml
----
-firstname: Malfoy
-age: Thirty-five
-```
-Running the same command, but with the other people appended:
-```bash
-$ yaml-validator-cli --schema person.yaml   \
-    johnsmith.yaml                          \
-    janedoe.yaml                            \
-    malfoy.yaml
-valid: "johnsmith.yaml"
-valid: "janedoe.yaml"
-failed: "malfoy.yaml": $.age: wrong type, expected `number` got `String("Thirty-five")`
-```
-We see that *malfoy.yaml* does not conform to the provided schema, and our program has exited with an error.
-
-## Validating against a context containing interdependent schemas
-In this example we'll make use of the `reference` data type, which means we'll need to provide schemas we'll be referring to with a `uri` we can locate them by.
-
-The [person.yaml](yaml-validator-cli/examples/person.yaml) file from the first examples already has a uri defined, it was just ommitted from the examples for simplicity's sake:
-```yaml
----
-uri: examples/0.0.3/person
+uri: phonebook
 schema:
-  - name: firstname
-    type: string
-  - name: age
-    type: number
+  type: object
+  items:
+    phonebook:
+      type: array
+      items:
+        $ref: person
 ```
-We can therefore go on to define our other schema, which will contain a list of *persons*:
 
-Schema: [listofpeople.yaml](yaml-validator-cli/examples/listofpeople.yaml)
+Source: [examples/nesting/schema.yaml](../examples/nesting/schema.yaml)
+
+We can then use the above schema to validate a yaml document as defined here:
+
 ```yaml
+# mybook.yaml
 ---
+phonebook:
+  - name: timmy
+    phone: 123456
+  - name: tammy
+    phone: 987654
+```
+Source: [examples/nesting/mybook.yaml](../examples/nesting/mybook.yaml)
+
+... Using the `yaml-validator-cli` as follows:
+
+```bash
+$ yaml-validator-cli --schema phonebook.yaml --uri phonebook -- mybook.yaml
+all files validated successfully!
+```
+---
+
+</p></details>
+
+
+<details><summary>Referencing schemas across file boundaries</summary>
+<p>
+
+All schemas given using the `--schema` commandline option are all loaded into the same context, so referencing a schema defined in a separate file is exactly the same as if they had been defined in the same file.
+
+```yaml
+# person-schema.yaml
+---
+uri: person
 schema:
-  - name: people
-    type: list
-    inner:
-      type: reference
-      uri: examples/0.0.3/person
+  type: object
+  items:
+    name:
+      type: string
+    phone:
+      type: integer
 ```
 
-Now we have to define a test file we can validate using the above schema:
+Source: [examples/multiple-schemas/person-schema.yaml](../examples/multiple-schemas/person-schema.yaml)
 
-YAML-file: [contacts.yaml](yaml-validator-cli/examples/contacts.yaml)
 ```yaml
+# phonebook-schema.yaml
 ---
-people:
-  - firstname: John
-    age: 58
-  - firstname: Jane
-    age: 33
-  - firstname: Malfoy
-    age: Thirty-five
-```
-We can validate our contacts list, by specifying both the schemas necessary to validate it in order:
-
-```bash
-$ yaml-validator-cli            \
-    --schema person.yaml        \
-    --schema listofpeople.yaml  \
-    contacts.yaml
-failed: "contacts.yaml": $.people[2].age: wrong type, expected `number` got `String("Thirty-five")`
-```
-once again *Malfoy* violates our schema with his stringified age, as we can tell from the error message telling us that the 3rd (because of zero-indexed arrays) entry in our *$.people* value is malformed.
-
-**Note:** This "just works", because we supplied our "listofpeople.yaml" file last, which means it will be used as the schema to validate against by default. If we had reversed the order of the schemas, or if we are not sure about the order the will be loaded in, we can give our `listofpeople.yaml` struct a uri too, and specify it on the command line to make it explicit which schema we want our `contacts.yaml` file to validate against:
-
-Schema: [listofpeople.yaml](yaml-validator-cli/examples/listofpeople.yaml)
-```yaml
----
-uri: examples/0.0.3/listofpeople
+uri: phonebook
 schema:
-  - name: people
-    type: list
-    inner:
-      type: reference
-      uri: examples/0.0.3/person
+  type: object
+  items:
+    phonebook:
+      type: array
+      items:
+        $ref: person
 ```
-Now in any order:
-```bash
-$ yaml-validator-cli                    \
-    --schema  listofpeople.yaml         \
-    --schema person.yaml                \
-    --uri examples/0.0.3/listofpeople   \
-    contacts.yaml
-failed: "contacts.yaml": $.people[2].age: wrong type, expected `number` got `String("Thirty-five")`
+Source: [examples/multiple-schemas/phonebook-schema.yaml](../examples/multiple-schemas/phonebook-schema.yaml)
+
+Validate the following yaml document against our schemas above:
+
+```yaml
+# mybook.yaml
+---
+phonebook:
+  - name: timmy
+    phone: 123456
+  - name: tammy
+    phone: 987654
 ```
-We of course still get the *Malfoy* error, since we haven't fixed our contacts.yaml list, but if you remove the --uri argument from our command, you'll be met with a completely different error:
+Source: [examples/multiple-schemas/mybook.yaml](../examples/multiple-schemas/mybook.yaml)
+
+... Using the `yaml-validator-cli` as follows:
 
 ```bash
-failed: "yaml-validator-cli/examples/contacts.yaml": $: missing field, `firstname` not found
+$ yaml-validator-cli                \
+    --schema phonebook-schema.yaml  \
+    --schema person-schema.yaml     \
+    --uri phonebook                 \
+    mybook.yaml
+all files validated successfully!
 ```
-The message claims there's a missing `firstname` field in our root document, because it thinks `contacts.yaml` is supposed to conform to the `person.yaml` schema.
+---
+
+</p></details>
+
+
+<details><summary>Combining all the different types with nested references</summary>
+<p>
+
+We can define a schema in 3 levels as below, where a customer-list is defined as an array of customers, which in turn contain elements of their own, as well as references to a third schema 'car':
+
+```yaml
+# schema.yaml
+---
+uri: car
+schema:
+  type: object
+  items:
+    year:
+      type: integer
+    model:
+      type: string
+    extra features:
+      type: array
+      items:
+        type: string
+    price: 
+      type: real
+
+---
+uri: customer
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    cars:
+      type: hash
+      items:
+        $ref: car
+
+---
+uri: customer-list
+schema:
+  type: array
+  items:
+    $ref: customer
+```
+
+Source: [examples/all-types/schema.yaml](../examples/all-types/schema.yaml)
+
+Validate the following customer list document against the defined schema:
+
+```yaml
+# customers.yaml
+---
+- name: Teodor Fælgen
+  cars:
+    work:
+      model: Ford T
+      extra features:
+        - gps
+        - heated seats
+      price: 200.00
+    racing:
+      model: Il Tempo Gigante
+      extra features:
+        - blood bank
+        - radar
+      price: 3000.00
+
+- name: Lightning McQueen
+  cars:
+    himself:
+      model: Stock
+      extra features:
+        - massive eyes instead of windows
+        - arrogance
+      price: 0.00
+```
+
+Source: [examples/all-types/customers.yaml](../examples/all-types/customers.yaml)
+
+
+... Using the `yaml-validator-cli` as follows:
+
+```bash
+$ yaml-validator-cli                \
+    --schema schema.yaml            \
+    --uri customer-list             \
+    customers.yaml
+all files validated successfully!
+```
+---
+
+</p></details>
+
+<details><summary>Locating errors in documents</summary>
+<p>
+Error messages always contain the full path within the document, as well as the document name in which the validation error occurred. This lets you pretty easily track down the exact source of the error.
+
+With a phonebook schema as follows:
+
+```yaml
+# schema.yaml
+---
+uri: person
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    age: 
+      type: integer
+
+---
+uri: phonebook
+schema:
+  type: array
+  items:
+    $ref: person
+```
+Source: Source: [examples/locating-errors/schema.yaml](../examples/locating-errors/schema.yaml)
+
+We can validate our very non-compliant document defined as:
+
+```yaml
+# phonebook.yaml
+- name: John
+  age: 52
+- name: Karen
+  age: 12.5
+- name: 200
+  age: Jimmy
+```
+Source: Source: [examples/locating-errors/phonebook.yaml](../examples/locating-errors/phonebook.yaml)
+
+Using yaml-validator-cli as follows:
+
+```
+$ yaml-validator-cli      \
+    --schema schema.yaml  \
+    --uri phonebook       \
+     phonebook.yaml
+phonebook.yaml:
+#[1].age: wrong type, expected integer got real
+#[2].age: wrong type, expected integer got string
+#[2].name: wrong type, expected string got integer
+```
+The error message correctly tells us that there's an issue with the document `phonebook.yaml` supplied. Karen's age is a real, not an integer, and Jimmy's age and name have been switched.
+
+Note: The `#` denotes the root of the document, `phonebook.yaml` in this case.
+
+---
+
+</p></details>
