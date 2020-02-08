@@ -177,12 +177,61 @@ mod tests {
                 schemas: vec!["../examples/locating-errors/schema.yaml".into()],
                 files: vec!["../examples/locating-errors/phonebook.yaml".into()],
                 uri: "phonebook".into(),
-            }).unwrap_err(),
-            Error::ValidationError("../examples/locating-errors/phonebook.yaml:
+            })
+            .unwrap_err(),
+            Error::ValidationError(
+                "../examples/locating-errors/phonebook.yaml:
 #[1].age: wrong type, expected integer got real
 #[2].age: wrong type, expected integer got string
 #[2].name: wrong type, expected string got integer
-".into())
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn test_non_existent_schema_file() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["not_found.yaml".into()],
+                files: vec!["".into()],
+                uri: "".into(),
+            })
+            .unwrap_err(),
+            Error::Multiple(vec![Error::FileError(
+                "could not read file not_found.yaml: No such file or directory (os error 2)\n"
+                    .into()
+            )])
+        );
+    }
+
+    #[test]
+    fn test_non_existent_file() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/nesting/schema.yaml".into()],
+                files: vec!["not_found.yaml".into()],
+                uri: "person".into(),
+            })
+            .unwrap_err(),
+            Error::Multiple(vec![Error::FileError(
+                "could not read file not_found.yaml: No such file or directory (os error 2)\n"
+                    .into()
+            )])
+        );
+    }
+
+    #[test]
+    fn test_unknown_schema_uri() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/nesting/schema.yaml".into()],
+                files: vec!["../examples/nesting/mybook.yaml".into()],
+                uri: "not-found".into(),
+            })
+            .unwrap_err(),
+            Error::ValidationError("schema referenced by uri `not-found` not found in context\n".into())
         );
     }
 }
