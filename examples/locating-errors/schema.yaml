@@ -1,0 +1,16 @@
+---
+uri: person
+schema:
+  type: object
+  items:
+    name:
+      type: string
+    age: 
+      type: integer
+
+---
+uri: phonebook
+schema:
+  type: array
+  items:
+    $ref: person

@@ -1,6 +1,6 @@
 use yaml_validator::{yaml_rust::ScanError, SchemaError};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     FileError(String),
     ValidationError(String),

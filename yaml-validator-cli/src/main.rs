@@ -143,7 +143,8 @@ mod tests {
             schemas: vec!["../examples/all-types/schema.yaml".into()],
             files: vec!["../examples/all-types/customers.yaml".into()],
             uri: "customer-list".into(),
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     #[test]
@@ -155,7 +156,8 @@ mod tests {
             ],
             files: vec!["../examples/multiple-schemas/mybook.yaml".into()],
             uri: "phonebook".into(),
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     #[test]
@@ -164,6 +166,23 @@ mod tests {
             schemas: vec!["../examples/nesting/schema.yaml".into()],
             files: vec!["../examples/nesting/mybook.yaml".into()],
             uri: "phonebook".into(),
-        }).unwrap();
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_locating_errors_example() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/locating-errors/schema.yaml".into()],
+                files: vec!["../examples/locating-errors/phonebook.yaml".into()],
+                uri: "phonebook".into(),
+            }).unwrap_err(),
+            Error::ValidationError("../examples/locating-errors/phonebook.yaml:
+#[1].age: wrong type, expected integer got real
+#[2].age: wrong type, expected integer got string
+#[2].name: wrong type, expected string got integer
+".into())
+        );
     }
 }
