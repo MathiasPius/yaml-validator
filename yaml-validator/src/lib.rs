@@ -8,8 +8,8 @@ mod types;
 mod utils;
 use types::*;
 
-pub use error::{SchemaError, SchemaErrorKind};
 use error::{add_path_name, optional};
+pub use error::{SchemaError, SchemaErrorKind};
 
 use utils::YamlUtils;
 
@@ -21,17 +21,40 @@ pub trait Validate<'yaml, 'schema: 'yaml> {
     ) -> Result<(), SchemaError<'yaml>>;
 }
 
+/// Contains a number of schemas that may or may not be dependent on each other.
 #[derive(Debug, Default)]
 pub struct Context<'schema> {
     schemas: BTreeMap<&'schema str, Schema<'schema>>,
 }
 
 impl<'schema> Context<'schema> {
+    /// Get a reference to a single schema within the context to use for validation.
+    ///
+    /// ```rust
+    /// # use yaml_rust::YamlLoader;
+    /// # use std::convert::TryFrom;
+    /// # use yaml_validator::{Validate, Context};
+    /// #
+    /// let schemas = vec![
+    ///     YamlLoader::load_from_str(r#"
+    ///         uri: just-a-number
+    ///         schema:
+    ///             type: integer
+    ///     "#).unwrap().remove(0)
+    /// ];
+    ///
+    /// let context = Context::try_from(&schemas).unwrap();
+    /// let document = YamlLoader::load_from_str("10").unwrap().remove(0);
+    ///
+    /// context.get_schema("just-a-number").unwrap()
+    ///     .validate(&context, &document).unwrap();
+    /// ```
     pub fn get_schema(&self, uri: &str) -> Option<&Schema<'schema>> {
         self.schemas.get(uri)
     }
 }
 
+/// A context can only be created from a vector of Yaml documents, all of which must fit the schema layout.
 impl<'schema> TryFrom<&'schema Vec<Yaml>> for Context<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(documents: &'schema Vec<Yaml>) -> Result<Self, Self::Error> {
@@ -145,8 +168,8 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Schema<'schema> {
 mod tests {
     use super::*;
     use crate::utils::load_simple;
-    use yaml_rust::YamlLoader;
     use crate::Context;
+    use yaml_rust::YamlLoader;
 
     #[test]
     fn from_yaml() {
