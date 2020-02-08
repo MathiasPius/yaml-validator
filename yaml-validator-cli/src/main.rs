@@ -95,6 +95,7 @@ pub(crate) fn actual_main(opt: Opt) -> Result<(), Error> {
         .files
         .iter()
         .zip(load_yaml(&opt.files).map_err(Error::Multiple)?);
+
     for (name, doc) in documents {
         schema.validate(&context, &doc).map_err(|err| {
             Error::ValidationError(format!(
