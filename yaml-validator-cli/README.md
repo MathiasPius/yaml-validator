@@ -36,7 +36,7 @@ The schema format supports a very limited number of types that map very closely 
 
  * `string` utf8-compliant string
  * `integer` i64 integer
- * `hash` aka dictionary that maps `string -> <type>` as defined in `items`
+ * `hash` (also know as `dictionary` or `hashmap`) that maps `string ➞ <type>` as defined in `items`
     * `items: <type>` (optional) type of the values in the hash
  * `array` array of items of type `<type>`
     * `items: <type>` (optional) type of the values in the array.
@@ -48,12 +48,13 @@ The schema format supports a very limited number of types that map very closely 
 # Examples
 All of the examples below can also be found in the [examples/](examples/) directory.
 
-<details><summary>Simple example using nested schemas through references</summary>
+<details><summary>Using nested schemas through references</summary>
 <p>
 
-Here's an example of a `phonebook` schema referencing a `person` object
+We can define a `person` object and later refer to it by its uri in a different schema `phonebook`:
 
 ```yaml
+# phonebook.yaml
 ---
 uri: person
 schema:
@@ -75,6 +76,26 @@ schema:
         $ref: person
 ```
 
-</p>
+Source: [examples/nesting/schema.yaml](examples/nesting/schema.yaml)
 
-</details>
+We can then use the above schema to validate a yaml document as defined here:
+
+```yaml
+# mybook.yaml
+---
+phonebook:
+  - name: timmy
+    phone: 123456
+  - name: tammy
+    phone: 987654
+```
+Source: [examples/nesting/schema.yaml](examples/nesting/mybook.yaml)
+
+... Using the `yaml-validator-cli` as follows:
+
+```bash
+$ yaml-validator-cli --schema phonebook.yaml --uri phonebook -- mybook.yaml
+all files validated successfully!
+```
+
+</p></details>
