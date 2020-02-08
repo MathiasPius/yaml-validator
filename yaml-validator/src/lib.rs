@@ -43,6 +43,11 @@ struct SchemaArray<'schema> {
 }
 
 #[derive(Debug, Default)]
+struct SchemaHash<'schema> {
+    items: Option<Box<PropertyType<'schema>>>,
+}
+
+#[derive(Debug, Default)]
 struct SchemaString {}
 
 #[derive(Debug, Default)]
@@ -57,6 +62,7 @@ struct SchemaReference<'schema> {
 enum PropertyType<'schema> {
     Object(SchemaObject<'schema>),
     Array(SchemaArray<'schema>),
+    Hash(SchemaHash<'schema>),
     String(SchemaString),
     Integer(SchemaInteger),
     Reference(SchemaReference<'schema>),
@@ -166,6 +172,29 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     }
 }
 
+impl<'schema> TryFrom<&'schema Yaml> for SchemaHash<'schema> {
+    type Error = SchemaError<'schema>;
+    fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        yaml.strict_contents(&[], &["items", "type"])?;
+
+        // I'm using Option::from here because I don't actually want to transform
+        // the resulting yaml object into a specific type, but need the yaml itself
+        // to be passed into PropertyType::try_from
+        yaml.lookup("items", "yaml", Option::from)
+            .map(|inner| {
+                yaml.lookup("items", "hash", Yaml::as_hash)
+                    .map_err(add_path_name("items"))?;
+
+                Ok(SchemaHash {
+                    items: Some(Box::new(
+                        PropertyType::try_from(inner).map_err(add_path_name("items"))?,
+                    )),
+                })
+            })
+            .or_else(optional(Ok(SchemaHash { items: None })))?
+    }
+}
+
 impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
@@ -203,6 +232,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             "string" => Ok(PropertyType::String(SchemaString::try_from(yaml)?)),
             "integer" => Ok(PropertyType::Integer(SchemaInteger::try_from(yaml)?)),
             "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
+            "hash" => Ok(PropertyType::Hash(SchemaHash::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
         }
     }
@@ -319,6 +349,36 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
     }
 }
 
+impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaHash<'schema> {
+    fn validate(
+        &self,
+        ctx: &'schema Context<'schema>,
+        yaml: &'yaml Yaml,
+    ) -> Result<(), SchemaError<'yaml>> {
+        let items = yaml.as_type("hash", Yaml::as_hash)?;
+
+        if let Some(schema) = &self.items {
+            let mut errors: Vec<SchemaError<'yaml>> = items
+                .values()
+                .enumerate()
+                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)))
+                .filter(Result::is_err)
+                .map(Result::unwrap_err)
+                .collect();
+
+            return if errors.is_empty() {
+                Ok(())
+            } else if errors.len() == 1 {
+                Err(errors.pop().unwrap())
+            } else {
+                Err(SchemaErrorKind::Multiple { errors }.into())
+            };
+        }
+
+        Ok(())
+    }
+}
+
 impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
     fn validate(
         &self,
@@ -330,6 +390,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::String(p) => p.validate(ctx, yaml),
             PropertyType::Object(p) => p.validate(ctx, yaml),
             PropertyType::Array(p) => p.validate(ctx, yaml),
+            PropertyType::Hash(p) => p.validate(ctx, yaml),
             PropertyType::Reference(p) => p.validate(ctx, yaml),
         }
     }

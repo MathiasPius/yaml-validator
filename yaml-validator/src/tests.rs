@@ -553,6 +553,153 @@ mod schemaarray {
     }
 }
 
+mod schemahash {
+    use super::*;
+    use crate::SchemaHash;
+    #[test]
+    fn from_yaml() {
+        SchemaHash::try_from(&load_simple(
+            r#"
+            items:
+              type: string
+        "#,
+        ))
+        .unwrap();
+    }
+
+    #[test]
+    fn malformed_items() {
+        debug_assert_eq!(
+            SchemaHash::try_from(&load_simple(
+                r#"
+            items:
+              - type: string
+        "#,
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "array"
+            }
+            .with_path(vec![PathSegment::Name("items")])
+            .into(),
+        );
+    }
+
+    #[test]
+    fn from_string() {
+        debug_assert_eq!(
+            SchemaHash::try_from(&load_simple("world")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "string"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn from_integer() {
+        debug_assert_eq!(
+            SchemaHash::try_from(&load_simple("10")).unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "integer"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn from_array() {
+        debug_assert_eq!(
+            SchemaHash::try_from(&load_simple(
+                r#"
+                - hello
+                - world
+            "#
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "array"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_string() {
+        let schema = SchemaHash::default();
+
+        debug_assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("hello world"))
+                .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "string"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_integer() {
+        let schema = SchemaHash::default();
+
+        debug_assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("10"))
+                .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "integer"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_untyped_hash() {
+        let schema = SchemaHash::default();
+
+        schema
+            .validate(&Context::default(), &load_simple("hello: world"))
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_typed_hash() {
+        let yaml = load_simple("type: hash\nitems:\n  type: integer");
+        let schema = SchemaHash::try_from(&yaml).unwrap();
+
+        schema
+            .validate(&Context::default(), &load_simple("hello: 20"))
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_invalid_typed_hash() {
+        let yaml = load_simple("type: hash\nitems:\n  type: integer");
+        let schema = SchemaHash::try_from(&yaml).unwrap();
+
+        assert_eq!(
+            schema
+                .validate(
+                    &Context::default(),
+                    &load_simple("hello: 20\nworld: clearly a string")
+                )
+                .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "integer",
+                actual: "string"
+            }
+            .with_path(vec![PathSegment::Index(1)])
+        )
+    }
+}
+
 mod schemareference {
     use super::*;
     use crate::SchemaReference;
