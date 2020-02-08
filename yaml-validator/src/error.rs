@@ -1,4 +1,31 @@
+#![macro_use]
+
 use thiserror::Error;
+
+#[cfg(feature = "smallvec-optimization")]
+pub type PathVec<'a> = smallvec::SmallVec<[PathSegment<'a>;8]>;
+#[cfg(not(feature = "smallvec-optimization"))]
+pub type PathVec<'a> = Vec<PathSegment<'a>>;
+
+#[cfg(test)]
+#[cfg(feature = "smallvec-optimization")]
+macro_rules! path{
+    ( $( $x:expr ),* ) => {
+        smallvec![
+            $(PathSegment::from($x),)*
+        ]
+    }
+}
+
+#[cfg(test)]
+#[cfg(not(feature = "smallvec-optimization"))]
+macro_rules! path{
+    ( $( $x:expr ),* ) => {
+        vec![
+            $(PathSegment::from($x),)*
+        ]
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PathSegment<'a> {
@@ -6,9 +33,21 @@ pub enum PathSegment<'a> {
     Index(usize),
 }
 
+impl<'a> From<&'a str> for PathSegment<'a> {
+    fn from(name: &'a str) -> Self {
+        PathSegment::Name(name)
+    }
+}
+
+impl<'a> From<usize> for PathSegment<'a> {
+    fn from(index: usize) -> Self {
+        PathSegment::Index(index)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct State<'a> {
-    path: Vec<PathSegment<'a>>,
+    path: PathVec<'a>,
 }
 
 impl<'a> std::fmt::Display for State<'a> {
@@ -26,7 +65,7 @@ impl<'a> std::fmt::Display for State<'a> {
 
 impl<'a> Default for State<'a> {
     fn default() -> Self {
-        State { path: vec![] }
+        State { path: PathVec::new() }
     }
 }
 
@@ -79,7 +118,7 @@ impl<'a> std::fmt::Display for SchemaError<'a> {
 
 #[cfg(test)]
 impl<'a> SchemaErrorKind<'a> {
-    pub fn with_path(self, path: Vec<PathSegment<'a>>) -> SchemaError<'a> {
+    pub fn with_path(self, path: PathVec<'a>) -> SchemaError<'a> {
         SchemaError {
             kind: self,
             state: State { path },

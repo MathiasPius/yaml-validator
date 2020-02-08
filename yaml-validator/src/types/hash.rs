@@ -94,7 +94,7 @@ mod tests {
                 expected: "hash",
                 actual: "array"
             }
-            .with_path(vec![PathSegment::Name("items")])
+            .with_path(path!["items"])
             .into(),
         );
     }
@@ -208,7 +208,7 @@ mod tests {
                 expected: "integer",
                 actual: "string"
             }
-            .with_path(vec![PathSegment::Index(1)])
-        )
+            .with_path(path![1])
+        );
     }
 }

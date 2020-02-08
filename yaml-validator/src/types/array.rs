@@ -94,7 +94,7 @@ mod tests {
                 expected: "hash",
                 actual: "array"
             }
-            .with_path(vec![PathSegment::Name("items")])
+            .with_path(path!["items"])
             .into(),
         );
     }
@@ -221,17 +221,17 @@ mod tests {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(vec![PathSegment::Index(0)]),
+                    .with_path(path![0]),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(vec![PathSegment::Index(4)]),
+                    .with_path(path![4]),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "hash"
                     }
-                    .with_path(vec![PathSegment::Index(6)])
+                    .with_path(path![6])
                 ]
             }
             .into()
