@@ -1,6 +1,6 @@
 [package]
 name = "yaml-validator"
-version = "0.0.4"
+version = "0.1.0"
 authors = ["Mathias Pius <contact@pius.io>"]
 edition = "2018"
 description = "A library for validating YAML against YAML-defined schemas"
@@ -11,4 +11,4 @@ keywords = ["YAML", "validation", "schema"]
 
 [dependencies]
 yaml-rust = "0.4.3"
-thiserror = "1.0.9"
+thiserror = "1.0.10"
