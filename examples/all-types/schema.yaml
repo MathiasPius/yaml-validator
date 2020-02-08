@@ -3,6 +3,8 @@ uri: car
 schema:
   type: object
   items:
+    year:
+      type: integer
     model:
       type: string
     extra features:
@@ -10,7 +12,7 @@ schema:
       items:
         type: string
     price: 
-      type: integer
+      type: real
 
 ---
 uri: customer

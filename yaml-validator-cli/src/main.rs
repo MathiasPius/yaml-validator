@@ -133,3 +133,37 @@ fn main() -> Result<(), Error> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_all_types_example() {
+        actual_main(Opt {
+            schemas: vec!["../examples/all-types/schema.yaml".into()],
+            files: vec!["../examples/all-types/customers.yaml".into()],
+            uri: "customer-list".into(),
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_multiple_schemas_example() {
+        actual_main(Opt {
+            schemas: vec![
+                "../examples/multiple-schemas/person-schema.yaml".into(),
+                "../examples/multiple-schemas/phonebook-schema.yaml".into(),
+            ],
+            files: vec!["../examples/multiple-schemas/mybook.yaml".into()],
+            uri: "phonebook".into(),
+        }).unwrap();
+    }
+
+    #[test]
+    fn test_nesting_example() {
+        actual_main(Opt {
+            schemas: vec!["../examples/nesting/schema.yaml".into()],
+            files: vec!["../examples/nesting/mybook.yaml".into()],
+            uri: "phonebook".into(),
+        }).unwrap();
+    }
+}

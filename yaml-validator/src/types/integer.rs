@@ -105,6 +105,22 @@ mod tests {
     }
 
     #[test]
+    fn validate_real() {
+        let schema = SchemaInteger::default();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("3.1415"))
+                .unwrap_err(),
+            SchemaErrorKind::WrongType {
+                expected: "integer",
+                actual: "real"
+            }
+            .into()
+        );
+    }
+
+    #[test]
     fn validate_array() {
         let schema = SchemaInteger::default();
 

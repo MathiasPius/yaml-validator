@@ -176,6 +176,8 @@ uri: car
 schema:
   type: object
   items:
+    year:
+      type: integer
     model:
       type: string
     extra features:
@@ -183,7 +185,7 @@ schema:
       items:
         type: string
     price: 
-      type: integer
+      type: real
 
 ---
 uri: customer
@@ -219,13 +221,13 @@ Validate the following customer list document against the defined schema:
       extra features:
         - gps
         - heated seats
-      price: 200
+      price: 200.00
     racing:
       model: Il Tempo Gigante
       extra features:
         - blood bank
         - radar
-      price: 3000
+      price: 3000.00
 
 - name: Lightning McQueen
   cars:
@@ -234,7 +236,7 @@ Validate the following customer list document against the defined schema:
       extra features:
         - massive eyes instead of windows
         - arrogance
-      price: 0
+      price: 0.00
 ```
 
 Source: [examples/all-types/customers.yaml](../examples/all-types/customers.yaml)
