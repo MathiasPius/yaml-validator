@@ -56,7 +56,7 @@ fn read_file(filename: &PathBuf) -> Result<String, Error> {
     Ok(utf8)
 }
 
-fn load_yaml(filenames: &Vec<PathBuf>) -> Result<Vec<Yaml>, Vec<Error>> {
+fn load_yaml(filenames: &[PathBuf]) -> Result<Vec<Yaml>, Vec<Error>> {
     let (yaml, errs): (Vec<_>, Vec<_>) = filenames
         .iter()
         .map(|file| {
@@ -231,7 +231,9 @@ mod tests {
                 uri: "not-found".into(),
             })
             .unwrap_err(),
-            Error::ValidationError("schema referenced by uri `not-found` not found in context\n".into())
+            Error::ValidationError(
+                "schema referenced by uri `not-found` not found in context\n".into()
+            )
         );
     }
 }
