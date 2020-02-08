@@ -27,29 +27,12 @@ impl<'a> From<SchemaError<'a>> for Error {
     }
 }
 
-/*
-impl From<YamlSchemaError> for Error {
-    fn from(e: YamlSchemaError) -> Self {
-        Error::YamlError(format!("{}", e))
-    }
-}
-
-impl<E> From<StatefulError<E>> for Error
-where
-    E: std::fmt::Display,
-{
-    fn from(e: StatefulError<E>) -> Self {
-        Error::ValidationError(format!("{}: {}", e.path.join(""), e.error))
-    }
-}
-*/
-
 impl<'a> std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::FileError(e) => writeln!(f, "{}", e),
-            Error::ValidationError(e) => writeln!(f, "{}", e),
-            Error::YamlError(e) => writeln!(f, "{}", e),
+            Error::FileError(e) => write!(f, "{}", e),
+            Error::ValidationError(e) => write!(f, "{}", e),
+            Error::YamlError(e) => write!(f, "{}", e),
             Error::Multiple(e) => {
                 for err in e {
                     write!(f, "{}", err)?;
