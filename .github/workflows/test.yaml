@@ -30,4 +30,11 @@ jobs:
         uses: actions-rs/cargo@v1
         continue-on-error: true
         with:
+          command: test --all-features
+
+      - name: Run cargo test (no default features)
+        uses: actions-rs/cargo@v1
+        continue-on-error: true
+        with:
           command: test
+          args: yaml-validator --no-default-features
