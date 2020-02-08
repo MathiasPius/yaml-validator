@@ -84,7 +84,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::PathSegment;
+    use crate::error::{PathSegment};
     use crate::utils::load_simple;
     use crate::SchemaObject;
 
@@ -127,7 +127,7 @@ mod tests {
             ))
             .unwrap_err(),
             SchemaErrorKind::FieldMissing { field: "type" }
-                .with_path(vec![PathSegment::Name("hello"), PathSegment::Name("items")]),
+                .with_path(path!["hello", "items"]),
         );
     }
 
@@ -151,17 +151,11 @@ mod tests {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(vec![
-                        PathSegment::Name("error 1"),
-                        PathSegment::Name("items"),
-                    ]),
+                    .with_path(path!["error 1", "items"]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(vec![
-                        PathSegment::Name("error 2"),
-                        PathSegment::Name("items"),
-                    ]),
+                    .with_path(path!["error 2", "items"]),
                 ]
             }
             .into()
@@ -325,12 +319,12 @@ mod tests {
                         expected: "string",
                         actual: "integer"
                     }
-                    .with_path(vec![PathSegment::Name("hello")]),
+                    .with_path(path!["hello"]),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(vec![PathSegment::Name("world")])
+                    .with_path(path!["world"])
                 ]
             }
             .into()
