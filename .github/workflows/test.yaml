@@ -33,11 +33,25 @@ jobs:
         continue-on-error: true
         with:
           command: test
-          args: --all-features
+          args: --all --all-features
 
-      - name: Run cargo test (no default features)
+#      - name: Run cargo test (no default features)
+#        uses: actions-rs/cargo@v1
+#        continue-on-error: true
+#        with:
+#          command: test
+#          args: --no-default-features
+
+      - run: rustup component add rustfmt
+      - name: Run cargo fmt
         uses: actions-rs/cargo@v1
-        continue-on-error: true
         with:
-          command: test
-          args: yaml-validator --features regex --features smallvec
+          command: fmt
+          args: --all -- --check
+
+      - run: rustup component add clippy
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
