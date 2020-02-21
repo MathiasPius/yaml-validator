@@ -18,16 +18,16 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         #[cfg(feature = "regex")]
         {
-            yaml.strict_contents(&[], &["type", "regex"])?;
+            yaml.strict_contents(&[], &["type", "pattern"])?;
 
             let pattern = yaml
-                .lookup("regex", "string", Yaml::as_str)
+                .lookup("pattern", "string", Yaml::as_str)
                 .map(Option::from)
                 .or_else(optional(None))?
                 .map(|inner| {
                     regex::Regex::new(inner).map_err(|e| {
                         SchemaErrorKind::MalformedField {
-                            field: "regex",
+                            field: "pattern",
                             error: format!("{}", e),
                         }
                         .into()
@@ -134,7 +134,7 @@ mod tests {
         SchemaString::try_from(&load_simple(
             r#"
                 type: string
-                regex: \w+.*
+                pattern: \w+.*
             "#,
         ))
         .unwrap();
@@ -217,7 +217,7 @@ mod tests {
         let yaml = load_simple(
             r#"
                 type: string
-                regex: "[a-zA-Z0-9]+\\[\\]\\d{3}f"
+                pattern: "[a-zA-Z0-9]+\\[\\]\\d{3}f"
             "#,
         );
 
