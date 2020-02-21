@@ -281,7 +281,8 @@ mod tests {
             .unwrap_err(),
             SchemaErrorKind::MalformedField {
                 error: "minLength cannot be greater than maxLength".into()
-            }.into()
+            }
+            .into()
         );
     }
 
@@ -319,9 +320,9 @@ mod tests {
                     &Context::default(),
                     &load_simple(
                         r#"
-                - abc
-                - 123
-            "#
+                        - abc
+                        - 123
+                    "#
                     )
                 )
                 .unwrap_err(),
@@ -339,18 +340,50 @@ mod tests {
 
         assert_eq!(
             schema
-                .validate(
-                    &Context::default(),
-                    &load_simple(
-                        r#"
-                hello: world
-            "#
-                    )
-                )
+                .validate(&Context::default(), &load_simple("hello: world"))
                 .unwrap_err(),
             SchemaErrorKind::WrongType {
                 expected: "string",
                 actual: "hash"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_min_and_max_length() {
+        let schema = SchemaString::try_from(&load_simple(
+            r#"
+            type: string
+            minLength: 10
+            maxLength: 20
+        "#,
+        ))
+        .unwrap();
+
+        schema
+            .validate(&Context::default(), &load_simple("hello world"))
+            .unwrap();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("hello"))
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "string length is less than minLength"
+            }
+            .into()
+        );
+
+        assert_eq!(
+            schema
+                .validate(
+                    &Context::default(),
+                    &load_simple("hello woooooooooooooooorld!")
+                )
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "string length is greater than maxLength"
             }
             .into()
         );
