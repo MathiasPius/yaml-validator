@@ -40,4 +40,4 @@ jobs:
         continue-on-error: true
         with:
           command: test
-          args: yaml-validator --no-default-features
+          args: yaml-validator --features regex --features smallvec
