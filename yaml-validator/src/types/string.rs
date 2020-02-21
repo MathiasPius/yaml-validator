@@ -18,7 +18,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         #[cfg(feature = "regex")]
         {
-            yaml.strict_contents(&[], &["type", "pattern"])?;
+            yaml.strict_contents(&[], &["type", "regex"])?;
 
             let pattern = yaml
                 .lookup("pattern", "string", Yaml::as_str)
