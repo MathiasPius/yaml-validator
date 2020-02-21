@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, SchemaError, optional, SchemaErrorKind};
+use crate::error::{add_path_name, optional, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, Validate};
 use std::convert::TryFrom;
