@@ -27,6 +27,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      
+      - name: Install rustup components (rustfmt, clippy)
+        run: rustup component add rustfmt clippys
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -35,14 +38,12 @@ jobs:
           command: test
           args: --all --all-features
 
-      - run: rustup component add rustfmt
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-      - run: rustup component add clippy
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
