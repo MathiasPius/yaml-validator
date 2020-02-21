@@ -73,7 +73,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
         if let (Some(min_length), Some(max_length)) = (min_length, max_length) {
             if min_length > max_length {
                 return Err(SchemaErrorKind::MalformedField {
-                    error: "minLength cannot be larger than maxLength".into(),
+                    error: "minLength cannot be greater than maxLength".into(),
                 }
                 .into());
             }
@@ -270,14 +270,19 @@ mod tests {
 
     #[test]
     fn with_min_larger_than_max_length() {
-        SchemaString::try_from(&load_simple(
-            r#"
+        assert_eq!(
+            SchemaString::try_from(&load_simple(
+                r#"
                 type: string
                 minLength: 20
                 maxLength: 10
             "#,
-        ))
-        .unwrap();
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::MalformedField {
+                error: "minLength cannot be greater than maxLength".into()
+            }.into()
+        );
     }
 
     #[test]
