@@ -70,6 +70,15 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
             .map(Option::from)
             .or_else(optional(None))?;
 
+        if let (Some(min_length), Some(max_length)) = (min_length, max_length) {
+            if min_length > max_length {
+                return Err(SchemaErrorKind::MalformedField {
+                    error: "minLength cannot be larger than maxLength".into(),
+                }
+                .into());
+            }
+        }
+
         #[cfg(feature = "regex")]
         {
             let pattern = yaml
@@ -245,6 +254,30 @@ mod tests {
             }
             .with_path(path!["minLength"])
         );
+    }
+
+    #[test]
+    fn with_min_and_max_length() {
+        SchemaString::try_from(&load_simple(
+            r#"
+                type: string
+                minLength: 10
+                maxLength: 20
+            "#,
+        ))
+        .unwrap();
+    }
+
+    #[test]
+    fn with_min_larger_than_max_length() {
+        SchemaString::try_from(&load_simple(
+            r#"
+                type: string
+                minLength: 20
+                maxLength: 10
+            "#,
+        ))
+        .unwrap();
     }
 
     #[test]
