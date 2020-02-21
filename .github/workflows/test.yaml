@@ -4,9 +4,11 @@ on:
       - master
     paths:
       - '**/src/*'
+      - '.github/workflows/*'
   pull_request:
     paths:
       - '**/src/*'
+      - '.github/workflows/*'
 
 
 name: library-tests
