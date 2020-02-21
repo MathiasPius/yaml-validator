@@ -51,7 +51,7 @@ jobs:
           args: -- -D warnings
 
       - run: cd yaml-validator/
-        name: Run cargo test (no default features)
+      - name: Run cargo test (no default features)
         uses: actions-rs/cargo@v1
         continue-on-error: true
         with:
