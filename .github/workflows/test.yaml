@@ -31,29 +31,29 @@ jobs:
       - name: Install rustup components (rustfmt, clippy)
         run: rustup component add rustfmt clippy
 
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        continue-on-error: true
-        with:
-          command: test
-          args: --all --all-features
-
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
+        continue-on-error: true
         with:
           command: fmt
           args: --all -- --check
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
+        continue-on-error: true
         with:
           command: clippy
           args: -- -D warnings
 
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --all-features
+
       - run: cd yaml-validator/
       - name: Run cargo test (no default features)
         uses: actions-rs/cargo@v1
-        continue-on-error: true
         with:
           command: test
           args: --no-default-features
