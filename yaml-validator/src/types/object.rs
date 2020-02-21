@@ -128,8 +128,7 @@ mod tests {
         "#,
             ))
             .unwrap_err(),
-            SchemaErrorKind::FieldMissing { field: "type" }
-                .with_path(path!["hello", "items"]),
+            SchemaErrorKind::FieldMissing { field: "type" }.with_path(path!["hello", "items"]),
         );
     }
 

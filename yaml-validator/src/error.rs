@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 #[cfg(feature = "smallvec")]
-pub type PathVec<'a> = smallvec::SmallVec<[PathSegment<'a>;8]>;
+pub type PathVec<'a> = smallvec::SmallVec<[PathSegment<'a>; 8]>;
 #[cfg(not(feature = "smallvec"))]
 pub type PathVec<'a> = Vec<PathSegment<'a>>;
 
@@ -65,7 +65,9 @@ impl<'a> std::fmt::Display for State<'a> {
 
 impl<'a> Default for State<'a> {
     fn default() -> Self {
-        State { path: PathVec::new() }
+        State {
+            path: PathVec::new(),
+        }
     }
 }
 
@@ -76,8 +78,8 @@ pub enum SchemaErrorKind<'a> {
         expected: &'static str,
         actual: &'a str,
     },
-    #[error("malformed field {field}: {error}")]
-    MalformedField { field: &'a str, error: String },
+    #[error("malformed field: {error}")]
+    MalformedField { error: String },
     #[error("special requirements for field not met: {error}")]
     ValidationError { error: &'a str },
     #[error("field '{field}' missing")]
@@ -120,13 +122,24 @@ impl<'a> std::fmt::Display for SchemaError<'a> {
     }
 }
 
-#[cfg(test)]
 impl<'a> SchemaErrorKind<'a> {
     pub fn with_path(self, path: PathVec<'a>) -> SchemaError<'a> {
         SchemaError {
             kind: self,
             state: State { path },
         }
+    }
+
+    pub fn with_path_name(self, path: &'a str) -> SchemaError<'a> {
+        let mut err: SchemaError = self.into();
+        err.state.path.push(PathSegment::Name(path));
+        err
+    }
+
+    pub fn with_path_index(self, index: usize) -> SchemaError<'a> {
+        let mut err: SchemaError = self.into();
+        err.state.path.push(PathSegment::Index(index));
+        err
     }
 }
 
