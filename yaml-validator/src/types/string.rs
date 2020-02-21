@@ -1,11 +1,8 @@
-use crate::error::{add_path_name, SchemaError};
+use crate::error::{add_path_name, SchemaError, optional, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
-
-#[cfg(feature = "regex")]
-use crate::error::{optional, SchemaErrorKind};
 
 #[derive(Debug, Default)]
 pub(crate) struct SchemaString {
