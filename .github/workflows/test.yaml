@@ -30,7 +30,8 @@ jobs:
         uses: actions-rs/cargo@v1
         continue-on-error: true
         with:
-          command: test --all-features
+          command: test
+          args: --all-features
 
       - name: Run cargo test (no default features)
         uses: actions-rs/cargo@v1
