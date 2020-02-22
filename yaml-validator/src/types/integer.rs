@@ -75,7 +75,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
             .map(Option::from)
             .or_else(optional(None))?;
 
-        Ok(SchemaInteger { minimum, maximum, multiple_of })
+        Ok(SchemaInteger {
+            minimum,
+            maximum,
+            multiple_of,
+        })
     }
 }
 
