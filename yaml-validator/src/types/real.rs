@@ -8,6 +8,7 @@ use yaml_rust::Yaml;
 pub(crate) struct SchemaReal {
     minimum: Option<Limit<f64>>,
     maximum: Option<Limit<f64>>,
+    multiple_of: Option<f64>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
@@ -21,6 +22,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
                 "exclusiveMinimum",
                 "maximum",
                 "exclusiveMaximum",
+                "multipleOf",
             ],
         )?;
 
@@ -49,6 +51,21 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
                 .map(Option::from)
                 .or_else(optional(None))?);
 
+        let multiple_of = yaml
+            .lookup("multipleOf", "real", Yaml::as_f64)
+            .and_then(|number| {
+                if number <= 0.0 {
+                    return Err(SchemaErrorKind::MalformedField {
+                        error: "must be greater than zero".into(),
+                    }
+                    .with_path_name("multipleOf"));
+                } else {
+                    Ok(number)
+                }
+            })
+            .map(Option::from)
+            .or_else(optional(None))?;
+
         if let (Some(lower), Some(upper)) = (&minimum, &maximum) {
             if !lower.has_span(&upper) {
                 return Err(SchemaErrorKind::MalformedField {
@@ -58,7 +75,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
             }
         }
 
-        Ok(SchemaReal { minimum, maximum })
+        Ok(SchemaReal {
+            minimum,
+            maximum,
+            multiple_of,
+        })
     }
 }
 
@@ -83,6 +104,15 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReal {
             if !maximum.is_lesser(&value) {
                 return Err(SchemaErrorKind::ValidationError {
                     error: "value violates upper limit constraint",
+                }
+                .into());
+            }
+        }
+
+        if let Some(multiple_of) = &self.multiple_of {
+            if value.rem_euclid(*multiple_of) != 0.0 {
+                return Err(SchemaErrorKind::ValidationError {
+                    error: "value must be a multiple of the multipleOf field",
                 }
                 .into());
             }
@@ -375,6 +405,42 @@ mod tests {
             }
             .into()
         );
+    }
+
+    #[test]
+    fn validate_multiple_of() {
+        let schema = SchemaReal::try_from(&load_simple(
+            r#"
+                type: real
+                multipleOf: 3.0
+            "#,
+        ))
+        .unwrap();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("10.0"))
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "value must be a multiple of the multipleOf field"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_multiple_of_success() {
+        let schema = SchemaReal::try_from(&load_simple(
+            r#"
+                type: real
+                multipleOf: 18.5
+            "#,
+        ))
+        .unwrap();
+
+        schema
+            .validate(&Context::default(), &load_simple("314.5"))
+            .unwrap();
     }
 
     #[test]

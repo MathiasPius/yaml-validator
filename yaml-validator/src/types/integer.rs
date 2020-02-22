@@ -8,6 +8,7 @@ use yaml_rust::Yaml;
 pub(crate) struct SchemaInteger {
     minimum: Option<Limit<i64>>,
     maximum: Option<Limit<i64>>,
+    multiple_of: Option<i64>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
@@ -21,6 +22,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
                 "exclusiveMinimum",
                 "maximum",
                 "exclusiveMaximum",
+                "multipleOf",
             ],
         )?;
 
@@ -58,7 +60,22 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
             }
         }
 
-        Ok(SchemaInteger { minimum, maximum })
+        let multiple_of = yaml
+            .lookup("multipleOf", "integer", Yaml::as_i64)
+            .and_then(|number| {
+                if number <= 0 {
+                    return Err(SchemaErrorKind::MalformedField {
+                        error: "must be greater than zero".into(),
+                    }
+                    .with_path_name("multipleOf"));
+                } else {
+                    Ok(number)
+                }
+            })
+            .map(Option::from)
+            .or_else(optional(None))?;
+
+        Ok(SchemaInteger { minimum, maximum, multiple_of })
     }
 }
 
@@ -83,6 +100,15 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
             if !maximum.is_lesser(&value) {
                 return Err(SchemaErrorKind::ValidationError {
                     error: "value violates upper limit constraint",
+                }
+                .into());
+            }
+        }
+
+        if let Some(multiple_of) = &self.multiple_of {
+            if value.rem_euclid(*multiple_of) != 0 {
+                return Err(SchemaErrorKind::ValidationError {
+                    error: "value must be a multiple of the multipleOf field",
                 }
                 .into());
             }
@@ -375,6 +401,42 @@ mod tests {
             }
             .into()
         );
+    }
+
+    #[test]
+    fn validate_multiple_of() {
+        let schema = SchemaInteger::try_from(&load_simple(
+            r#"
+                type: integer
+                multipleOf: 3
+            "#,
+        ))
+        .unwrap();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("10"))
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "value must be a multiple of the multipleOf field"
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn validate_multiple_of_success() {
+        let schema = SchemaInteger::try_from(&load_simple(
+            r#"
+                type: integer
+                multipleOf: 325
+            "#,
+        ))
+        .unwrap();
+
+        schema
+            .validate(&Context::default(), &load_simple("4875"))
+            .unwrap();
     }
 
     #[test]
