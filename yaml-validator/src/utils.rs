@@ -137,11 +137,15 @@ impl YamlUtils for Yaml {
             .filter(|field| hash.contains_key(&Yaml::String((**field).to_string())))
             .map(|f| *f)
             .collect();
-        
-        if conflicts.len() > 0 {
+
+        if conflicts.len() > 1 {
             return Err(SchemaErrorKind::MalformedField {
-                error: format!("conflicting constraints: {} cannot be used at the same time", conflicts.join(", "))
-            }.into());
+                error: format!(
+                    "conflicting constraints: {} cannot be used at the same time",
+                    conflicts.join(", ")
+                ),
+            }
+            .into());
         }
 
         Ok(())
