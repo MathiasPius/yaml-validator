@@ -64,10 +64,10 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
             .lookup("multipleOf", "integer", Yaml::as_i64)
             .and_then(|number| {
                 if number <= 0 {
-                    return Err(SchemaErrorKind::MalformedField {
+                    Err(SchemaErrorKind::MalformedField {
                         error: "must be greater than zero".into(),
                     }
-                    .with_path_name("multipleOf"));
+                    .with_path_name("multipleOf"))
                 } else {
                     Ok(number)
                 }

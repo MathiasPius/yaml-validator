@@ -55,10 +55,10 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
             .lookup("multipleOf", "real", Yaml::as_f64)
             .and_then(|number| {
                 if number <= 0.0 {
-                    return Err(SchemaErrorKind::MalformedField {
+                    Err(SchemaErrorKind::MalformedField {
                         error: "must be greater than zero".into(),
                     }
-                    .with_path_name("multipleOf"));
+                    .with_path_name("multipleOf"))
                 } else {
                     Ok(number)
                 }
