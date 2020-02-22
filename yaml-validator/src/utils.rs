@@ -34,6 +34,11 @@ pub trait YamlUtils {
         required: &[&'schema str],
         optional: &[&'schema str],
     ) -> Result<&Hash, SchemaError<'schema>>;
+
+    fn check_exclusive_fields<'schema>(
+        &'schema self,
+        exclusive_keys: &[&'static str],
+    ) -> Result<(), SchemaError<'schema>>;
 }
 
 impl YamlUtils for Yaml {
@@ -113,5 +118,26 @@ impl YamlUtils for Yaml {
         } else {
             Err(SchemaErrorKind::Multiple { errors }.into())
         }
+    }
+
+    fn check_exclusive_fields<'schema>(
+        &'schema self,
+        exclusive_keys: &[&'static str],
+    ) -> Result<(), SchemaError<'schema>> {
+        let hash = self.as_type("hash", Yaml::as_hash)?;
+
+        let conflicts: Vec<&'static str> = exclusive_keys
+            .into_iter()
+            .filter(|field| hash.contains_key(&Yaml::String((**field).to_string())))
+            .map(|f| *f)
+            .collect();
+        
+        if conflicts.len() > 0 {
+            return Err(SchemaErrorKind::MalformedField {
+                error: format!("conflicting constraints: {} cannot be used at the same time", conflicts.join(", "))
+            }.into());
+        }
+
+        Ok(())
     }
 }
