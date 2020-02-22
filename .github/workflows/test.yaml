@@ -51,6 +51,10 @@ jobs:
           command: test
           args: --workspace --all-features
 
+#       Can't run cargo test in a virtual workspace with 
+#       --no-default-features, see:
+#       https://github.com/MathiasPius/yaml-validator/issues/8
+#
 #      - run: cd yaml-validator/
 #      - name: Run cargo test (no default features)
 #        uses: actions-rs/cargo@v1
