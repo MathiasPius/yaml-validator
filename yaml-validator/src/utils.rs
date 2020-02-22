@@ -1,11 +1,62 @@
 use crate::error::{SchemaError, SchemaErrorKind};
-use std::ops::Index;
+use std::fmt::Display;
+use std::ops::{Index, Sub};
+
 use yaml_rust::{yaml::Hash, Yaml};
 
+pub trait UnitValue: Sub + Copy + PartialOrd + Default + Display {
+    const ZERO: Self;
+    const UNIT: Self;
+}
+
+impl UnitValue for f64 {
+    const ZERO: f64 = 0.0;
+    const UNIT: f64 = std::f64::MIN_POSITIVE;
+}
+
+impl UnitValue for i64 {
+    const ZERO: i64 = 0;
+    const UNIT: i64 = 1;
+}
+
 #[derive(Debug)]
-pub enum Limit<T> {
+pub enum Limit<T: UnitValue>
+where
+    <T as Sub>::Output: UnitValue,
+{
     Inclusive(T),
     Exclusive(T),
+}
+
+impl<T: UnitValue> Limit<T>
+where
+    <T as Sub>::Output: UnitValue,
+{
+    pub fn is_lesser(&self, value: &T) -> bool {
+        match self {
+            Limit::Inclusive(threshold) => value <= threshold,
+            Limit::Exclusive(threshold) => value < threshold,
+        }
+    }
+
+    pub fn is_greater(&self, value: &T) -> bool {
+        match self {
+            Limit::Inclusive(threshold) => value >= threshold,
+            Limit::Exclusive(threshold) => value > threshold,
+        }
+    }
+
+    pub fn has_span(&self, upper: &Self) -> bool {
+        let zero = <<T as Sub>::Output as UnitValue>::ZERO;
+        let unit = <<T as Sub>::Output as UnitValue>::UNIT;
+
+        match (self, upper) {
+            (Limit::Inclusive(lower), Limit::Inclusive(upper)) => (*upper - *lower) >= zero,
+            (Limit::Exclusive(lower), Limit::Exclusive(upper)) => (*upper - *lower) > unit,
+            (Limit::Exclusive(lower), Limit::Inclusive(upper)) => (*upper - *lower) >= zero,
+            (Limit::Inclusive(lower), Limit::Exclusive(upper)) => (*upper - *lower) >= zero,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -133,7 +184,7 @@ impl YamlUtils for Yaml {
         let hash = self.as_type("hash", Yaml::as_hash)?;
 
         let conflicts: Vec<&'static str> = exclusive_keys
-            .into_iter()
+            .iter()
             .filter(|field| hash.contains_key(&Yaml::String((**field).to_string())))
             .map(|f| *f)
             .collect();
@@ -149,5 +200,55 @@ impl YamlUtils for Yaml {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Limit;
+
+    #[test]
+    fn verify_limit_logic_f64() {
+        // (10.0 <= x <= 10.0) is a VALID interval
+        assert!(Limit::Inclusive(10.0).has_span(&Limit::Inclusive(10.0)));
+
+        // (10.0 < x < 10.0) is an INVALID interval
+        assert!(!Limit::Exclusive(10.0).has_span(&Limit::Exclusive(10.0)));
+
+        // (10.0 < x < 11.0) is a VALID interval
+        assert!(Limit::Exclusive(10.0).has_span(&Limit::Exclusive(11.0)));
+
+        // (20.0 <= x <= 10.0) is an INVALID interval
+        assert!(!Limit::Inclusive(20.0).has_span(&Limit::Inclusive(10.0)));
+
+        // (10.0 < x < 20.0) is a VALID interval
+        assert!(Limit::Exclusive(10.0).has_span(&Limit::Exclusive(20.0)));
+
+        // (20.0 < x < 10.0) is an INVALID interval
+        assert!(!Limit::Exclusive(20.0).has_span(&Limit::Exclusive(10.0)));
+    }
+
+    #[test]
+    fn verify_limit_logic_int() {
+        // (10 <= x <= 10) is a VALID interval
+        assert!(Limit::Inclusive(10).has_span(&Limit::Inclusive(10)));
+
+        // (10 < x < 10) is an INVALID interval
+        assert!(!Limit::Exclusive(10).has_span(&Limit::Exclusive(10)));
+
+        // (10.0 < x < 11) is an INVALID interval
+        assert!(!Limit::Exclusive(10).has_span(&Limit::Exclusive(11)));
+
+        // (10.0 < x < 12) is a VALID interval
+        assert!(Limit::Exclusive(10).has_span(&Limit::Exclusive(12)));
+
+        // (20 <= x <= 10) is an INVALID interval
+        assert!(!Limit::Inclusive(20).has_span(&Limit::Inclusive(10)));
+
+        // (10 < x < 20) is a VALID interval
+        assert!(Limit::Exclusive(10).has_span(&Limit::Exclusive(20)));
+
+        // (20 < x < 10) is an INVALID interval
+        assert!(!Limit::Exclusive(20).has_span(&Limit::Exclusive(10)));
     }
 }
