@@ -2,6 +2,12 @@ use crate::error::{SchemaError, SchemaErrorKind};
 use std::ops::Index;
 use yaml_rust::{yaml::Hash, Yaml};
 
+#[derive(Debug)]
+pub enum Limit<T> {
+    Inclusive(T),
+    Exclusive(T),
+}
+
 #[cfg(test)]
 pub(crate) fn load_simple(source: &'static str) -> Yaml {
     yaml_rust::YamlLoader::load_from_str(source)
