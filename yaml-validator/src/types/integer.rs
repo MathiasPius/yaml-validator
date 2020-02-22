@@ -82,7 +82,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
         if let Some(maximum) = &self.maximum {
             if !maximum.is_lesser(&value) {
                 return Err(SchemaErrorKind::ValidationError {
-                    error: "value violates upper limit constraint".into(),
+                    error: "value violates upper limit constraint",
                 }
                 .into());
             }

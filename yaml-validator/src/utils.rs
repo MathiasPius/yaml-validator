@@ -186,7 +186,7 @@ impl YamlUtils for Yaml {
         let conflicts: Vec<&'static str> = exclusive_keys
             .iter()
             .filter(|field| hash.contains_key(&Yaml::String((**field).to_string())))
-            .map(|f| *f)
+            .copied()
             .collect();
 
         if conflicts.len() > 1 {

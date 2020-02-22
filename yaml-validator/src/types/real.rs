@@ -82,7 +82,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReal {
         if let Some(maximum) = &self.maximum {
             if !maximum.is_lesser(&value) {
                 return Err(SchemaErrorKind::ValidationError {
-                    error: "value violates upper limit constraint".into(),
+                    error: "value violates upper limit constraint",
                 }
                 .into());
             }
@@ -371,7 +371,7 @@ mod tests {
                 .validate(&Context::default(), &load_simple("20.0"))
                 .unwrap_err(),
             SchemaErrorKind::ValidationError {
-                error: "value violates upper limit constraint".into()
+                error: "value violates upper limit constraint"
             }
             .into()
         );
