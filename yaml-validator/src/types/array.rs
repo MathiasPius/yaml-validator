@@ -1,6 +1,7 @@
 use crate::error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
 use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, PropertyType, Validate};
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
@@ -9,6 +10,7 @@ pub(crate) struct SchemaArray<'schema> {
     items: Option<Box<PropertyType<'schema>>>,
     min_items: Option<usize>,
     max_items: Option<usize>,
+    unique_items: bool,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
@@ -33,6 +35,13 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .map(Option::from)
             .or_else(optional(None))?;
 
+        let unique_items = yaml
+            .lookup("uniqueItems", "bool", Yaml::as_bool)
+            .map_err(add_path_name("uniqueItems"))
+            .map(Option::from)
+            .or_else(optional(None))?
+            .unwrap_or(false);
+
         if let (Some(min_items), Some(max_items)) = (min_items, max_items) {
             if min_items > max_items {
                 return Err(SchemaErrorKind::MalformedField {
@@ -56,12 +65,14 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
                     )),
                     min_items,
                     max_items,
+                    unique_items,
                 })
             })
             .or_else(optional(Ok(SchemaArray {
                 items: None,
                 min_items,
                 max_items,
+                unique_items,
             })))?
     }
 }
@@ -89,6 +100,20 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
                     error: "array contains more than maxItems items",
                 }
                 .into());
+            }
+        }
+
+        if self.unique_items {
+            let mut set = HashSet::new();
+            for (i, item) in items.iter().enumerate() {
+                if set.contains(item) {
+                    return Err(SchemaErrorKind::ValidationError {
+                        error: "array contains duplicate key",
+                    }
+                    .with_path_index(i));
+                }
+
+                set.insert(item);
             }
         }
 
@@ -276,6 +301,64 @@ mod tests {
                 ),
             )
             .unwrap();
+    }
+
+    #[test]
+    fn validate_unique_typed_array() {
+        let yaml = load_simple(
+            r#"
+            uniqueItems: true
+            items:
+              type: integer
+        "#,
+        );
+
+        SchemaArray::try_from(&yaml)
+            .unwrap()
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
+                    - 1234
+                    - 5678
+                    - 9876
+                "#,
+                ),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_unique_typed_array_duplicates() {
+        let yaml = load_simple(
+            r#"
+            uniqueItems: true
+            items:
+              type: integer
+        "#,
+        );
+
+        assert_eq!(
+            SchemaArray::try_from(&yaml)
+                .unwrap()
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
+                    - 1234
+                    - 5678
+                    - 9876
+                    - 1234
+                    - 8286
+                "#,
+                    ),
+                )
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "array contains duplicate key"
+            }
+            .with_path_index(3)
+        );
     }
 
     #[test]
