@@ -83,7 +83,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
             }
         }
 
-        if let Some(max_items) = &self.min_items {
+        if let Some(max_items) = &self.max_items {
             if items.len() > *max_items {
                 return Err(SchemaErrorKind::ValidationError {
                     error: "array contains more than maxItems items",
@@ -196,6 +196,31 @@ mod tests {
     }
 
     #[test]
+    fn with_invalid_range() {
+        SchemaArray::try_from(&load_simple(
+            r#"
+            minItems: 10
+            maxItems: 10
+        "#,
+        ))
+        .unwrap();
+
+        assert_eq!(
+            SchemaArray::try_from(&load_simple(
+                r#"
+                minItems: 10
+                maxItems: 5
+            "#
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::MalformedField {
+                error: "minItems cannot be greater than maxItems".into()
+            }
+            .into()
+        );
+    }
+
+    #[test]
     fn validate_string() {
         let schema = SchemaArray::default();
 
@@ -228,15 +253,112 @@ mod tests {
     }
 
     #[test]
+    fn validate_bounded_typed_array() {
+        let yaml = load_simple(
+            r#"
+            minItems: 2
+            maxItems: 10
+            items:
+              type: integer
+        "#,
+        );
+
+        SchemaArray::try_from(&yaml)
+            .unwrap()
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
+                    - 1234
+                    - 5678
+                    - 9876
+                "#,
+                ),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_narrow_array() {
+        let yaml = load_simple(
+            r#"
+            minItems: 2
+            maxItems: 2
+            items:
+              type: integer
+        "#,
+        );
+
+        SchemaArray::try_from(&yaml)
+            .unwrap()
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
+                    - 1234
+                    - 5678
+                "#,
+                ),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_too_large_array() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple("maxItems: 2"))
+                .unwrap()
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
+                    - 1234
+                    - 5678
+                    - acbd
+                "#,
+                    ),
+                )
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "array contains more than maxItems items"
+            }
+            .into()
+        )
+    }
+
+    #[test]
+    fn validate_too_small_array() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple("minItems: 5"))
+                .unwrap()
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
+                    - 1234
+                    - 5678
+                    - acbd
+                "#,
+                    ),
+                )
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "array contains fewer than minItems items"
+            }
+            .into()
+        )
+    }
+
+    #[test]
     fn validate_untyped_array() {
         SchemaArray::default()
             .validate(
                 &Context::default(),
                 &load_simple(
                     r#"
-                - abc
-                - 123
-            "#,
+                    - abc
+                    - 123
+                "#,
                 ),
             )
             .unwrap();
