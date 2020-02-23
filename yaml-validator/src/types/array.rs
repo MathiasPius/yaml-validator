@@ -11,6 +11,7 @@ pub(crate) struct SchemaArray<'schema> {
     min_items: Option<usize>,
     max_items: Option<usize>,
     unique_items: bool,
+    contains: Option<Box<PropertyType<'schema>>>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
@@ -51,29 +52,27 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             }
         }
 
-        // I'm using Option::from here because I don't actually want to transform
-        // the resulting yaml object into a specific type, but need the yaml itself
-        // to be passed into PropertyType::try_from
-        yaml.lookup("items", "yaml", Option::from)
-            .map(|inner| {
-                yaml.lookup("items", "hash", Yaml::as_hash)
-                    .map_err(add_path_name("items"))?;
+        let items = yaml
+            .lookup("items", "yaml", Option::from)
+            .map_err(add_path_name("items"))
+            .map(Option::from)
+            .or_else(optional(None))?;
 
-                Ok(SchemaArray {
-                    items: Some(Box::new(
-                        PropertyType::try_from(inner).map_err(add_path_name("items"))?,
-                    )),
-                    min_items,
-                    max_items,
-                    unique_items,
-                })
-            })
-            .or_else(optional(Ok(SchemaArray {
-                items: None,
-                min_items,
-                max_items,
-                unique_items,
-            })))?
+        let items = if let Some(items) = items {
+            Some(Box::new(
+                PropertyType::try_from(items).map_err(add_path_name("items"))?,
+            ))
+        } else {
+            None
+        };
+
+        Ok(SchemaArray {
+            items,
+            min_items,
+            max_items,
+            unique_items,
+            contains: None,
+        })
     }
 }
 
