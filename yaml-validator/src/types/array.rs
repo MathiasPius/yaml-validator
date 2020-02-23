@@ -33,6 +33,15 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .map(Option::from)
             .or_else(optional(None))?;
 
+        if let (Some(min_items), Some(max_items)) = (min_items, max_items) {
+            if min_items > max_items {
+                return Err(SchemaErrorKind::MalformedField {
+                    error: "minItems cannot be greater than maxItems".into(),
+                }
+                .into());
+            }
+        }
+
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
         // to be passed into PropertyType::try_from
