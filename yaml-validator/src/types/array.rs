@@ -65,6 +65,24 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
     ) -> Result<(), SchemaError<'yaml>> {
         let items = yaml.as_type("array", Yaml::as_vec)?;
 
+        if let Some(min_items) = &self.min_items {
+            if items.len() < *min_items {
+                return Err(SchemaErrorKind::ValidationError {
+                    error: "array contains fewer than minItems items",
+                }
+                .into());
+            }
+        }
+
+        if let Some(max_items) = &self.min_items {
+            if items.len() > *max_items {
+                return Err(SchemaErrorKind::ValidationError {
+                    error: "array contains more than maxItems items",
+                }
+                .into());
+            }
+        }
+
         if let Some(schema) = &self.items {
             let mut errors: Vec<SchemaError<'yaml>> = items
                 .iter()
