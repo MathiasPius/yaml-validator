@@ -128,7 +128,11 @@ mod tests {
         "#,
             ))
             .unwrap_err(),
-            SchemaErrorKind::FieldMissing { field: "type" }.with_path(path!["hello", "items"]),
+            SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: "string"
+            }
+            .with_path(path!["hello", "items"]),
         );
     }
 

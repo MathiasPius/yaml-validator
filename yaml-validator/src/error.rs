@@ -194,7 +194,8 @@ mod tests {
                   level2:
                     type: object
                     items:
-                      leaf: hello
+                      leaf: 
+                        notype: hello
             "#,
         );
 

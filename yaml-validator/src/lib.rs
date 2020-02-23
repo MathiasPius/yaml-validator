@@ -102,6 +102,14 @@ enum PropertyType<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        if yaml.as_hash().is_none() {
+            return Err(SchemaErrorKind::WrongType {
+                expected: "hash",
+                actual: yaml.type_to_str(),
+            }
+            .into());
+        }
+
         let reference = yaml
             .lookup("$ref", "string", Yaml::as_str)
             .map(Option::from)
