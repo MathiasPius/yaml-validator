@@ -246,8 +246,8 @@ mod tests {
     fn validate_typed_array() {
         let yaml = load_simple(
             r#"
-        items:
-          type: integer
+            items:
+              type: integer
         "#,
         );
 
@@ -258,14 +258,14 @@ mod tests {
                     &Context::default(),
                     &load_simple(
                         r#"
-                - abc
-                - 1
-                - 2
-                - 3
-                - def
-                - 4
-                - hello: world
-            "#,
+                        - abc
+                        - 1
+                        - 2
+                        - 3
+                        - def
+                        - 4
+                        - hello: world
+                    "#,
                     )
                 )
                 .unwrap_err(),
