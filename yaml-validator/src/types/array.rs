@@ -12,6 +12,8 @@ pub(crate) struct SchemaArray<'schema> {
     max_items: Option<usize>,
     unique_items: bool,
     contains: Option<Box<PropertyType<'schema>>>,
+    min_contains: Option<usize>,
+    max_contains: Option<usize>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
@@ -19,7 +21,16 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.strict_contents(
             &[],
-            &["type", "items", "maxItems", "minItems", "uniqueItems"],
+            &[
+                "type",
+                "items",
+                "maxItems",
+                "minItems",
+                "uniqueItems",
+                "contains",
+                "minContains",
+                "maxContains",
+            ],
         )?;
 
         let min_items = yaml
@@ -56,22 +67,67 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .lookup("items", "yaml", Option::from)
             .map_err(add_path_name("items"))
             .map(Option::from)
+            .or_else(optional(None))?
+            .map(PropertyType::try_from)
+            .transpose()
+            .map_err(add_path_name("items"))?
+            .map(Box::new);
+
+        let contains = yaml
+            .lookup("contains", "yaml", Option::from)
+            .map_err(add_path_name("contains"))
+            .map(Option::from)
+            .or_else(optional(None))?
+            .map(PropertyType::try_from)
+            .transpose()
+            .map_err(add_path_name("contains"))?
+            .map(Box::new);
+
+        let min_contains = yaml
+            .lookup("minContains", "integer", Yaml::as_i64)
+            .and_then(try_into_usize)
+            .map_err(add_path_name("minContains"))
+            .map(Option::from)
             .or_else(optional(None))?;
 
-        let items = if let Some(items) = items {
-            Some(Box::new(
-                PropertyType::try_from(items).map_err(add_path_name("items"))?,
-            ))
-        } else {
-            None
-        };
+        let max_contains = yaml
+            .lookup("maxContains", "integer", Yaml::as_i64)
+            .and_then(try_into_usize)
+            .map_err(add_path_name("maxContains"))
+            .map(Option::from)
+            .or_else(optional(None))?;
+
+        // This does not seem like the nicest way to do this...
+        match (&contains, &min_contains, &max_contains) {
+            (None   , Some(_)  , None     ) => Err(SchemaErrorKind::MalformedField {
+                error: "minContains requires 'contains' to specify a schema to validate against".into()
+            }.into()),
+            (None   , None     , Some(_)  ) => Err(SchemaErrorKind::MalformedField {
+                error: "maxContains requires 'contains' to specify a schema to validate against".into()
+            }.into()),
+            (None   , Some(_)  , Some(_)  ) => Err(SchemaErrorKind::MalformedField {
+                error: "minContains and maxContains requires 'contains' to specify a schema to validate against".into()
+            }.into()),
+            (Some(_), Some(min), Some(max)) => {
+                if min > max {
+                    Err(SchemaErrorKind::MalformedField {
+                        error: "minContains cannot be greater than maxContains".into()
+                    }.into())
+                } else {
+                    Ok(())
+                }
+            },
+            _ => Ok(())
+        }?;
 
         Ok(SchemaArray {
             items,
             min_items,
             max_items,
             unique_items,
-            contains: None,
+            contains,
+            min_contains,
+            max_contains,
         })
     }
 }
@@ -115,6 +171,39 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
                 set.insert(item);
             }
         }
+
+        if let Some(contains) = &self.contains {
+            let contained = items
+                .iter()
+                .enumerate()
+                .map(|(i, item)| contains.validate(ctx, item).map_err(add_path_index(i)))
+                .filter(Result::is_ok)
+                .count();
+
+            if let Some(min) = self.min_contains {
+                if contained < min {
+                    return Err(SchemaErrorKind::ValidationError {
+                        error:
+                            "fewer than minContains items validated against schema in 'contains'",
+                    }
+                    .into());
+                }
+            } else if contained < 1 {
+                return Err(SchemaErrorKind::ValidationError {
+                    error: "at least one item in the array must match the 'contains' schema",
+                }
+                .into());
+            }
+
+            if let Some(max) = self.max_contains {
+                if contained > max {
+                    return Err(SchemaErrorKind::ValidationError {
+                        error: "more than minContains items validated against schema in 'contains'",
+                    }
+                    .into());
+                }
+            }
+        };
 
         if let Some(schema) = &self.items {
             let mut errors: Vec<SchemaError<'yaml>> = items
@@ -239,6 +328,61 @@ mod tests {
             .unwrap_err(),
             SchemaErrorKind::MalformedField {
                 error: "minItems cannot be greater than maxItems".into()
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn with_contains() {
+        SchemaArray::try_from(&load_simple(
+            r#"
+            minContains: 5
+            maxContains: 10
+            contains:
+              type: integer
+        "#,
+        ))
+        .unwrap();
+
+        SchemaArray::try_from(&load_simple(
+            r#"
+            minContains: 5
+            contains:
+              type: integer
+        "#,
+        ))
+        .unwrap();
+
+        assert_eq!(
+            SchemaArray::try_from(&load_simple(
+                r#"
+                minContains: 10
+                maxContains: 5
+            "#
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::MalformedField {
+                error: "minContains and maxContains requires 'contains' to specify a schema to validate against".into()
+            }
+            .into()
+        );
+    }
+
+    #[test]
+    fn with_contain_invalid_range() {
+        assert_eq!(
+            SchemaArray::try_from(&load_simple(
+                r#"
+                minContains: 10
+                maxContains: 5
+                contains:
+                  type: integer
+            "#
+            ))
+            .unwrap_err(),
+            SchemaErrorKind::MalformedField {
+                error: "minContains cannot be greater than maxContains".into()
             }
             .into()
         );
@@ -494,6 +638,37 @@ mod tests {
             }
             .into()
         );
+    }
+
+    #[test]
+    fn validate_array_contains() {
+        let yaml = load_simple(
+            r#"
+            minContains: 2
+            maxContains: 10
+            contains:
+              type: integer
+              minimum: 5
+              maximum: 20
+        "#,
+        );
+
+        SchemaArray::try_from(&yaml)
+            .unwrap()
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
+                    - 1234
+                    - 5678
+                    - 9876
+                    - 50
+                    - 15
+                    - 10
+                "#,
+                ),
+            )
+            .unwrap();
     }
 
     #[test]
