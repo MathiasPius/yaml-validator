@@ -1,5 +1,5 @@
 use crate::error::{add_path_name, optional, SchemaError, SchemaErrorKind};
-use crate::utils::YamlUtils;
+use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -27,42 +27,14 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 
         let min_length = yaml
             .lookup("minLength", "integer", Yaml::as_i64)
-            .and_then(|length| {
-                if length < 0 {
-                    return Err(SchemaErrorKind::MalformedField {
-                        error: "must be a non-negative integer value".into(),
-                    }
-                    .into());
-                }
-
-                usize::try_from(length).map_err(|_| {
-                    SchemaErrorKind::MalformedField {
-                        error: "value does not fit in a usize on this system".into(),
-                    }
-                    .into()
-                })
-            })
+            .and_then(try_into_usize)
             .map_err(add_path_name("minLength"))
             .map(Option::from)
             .or_else(optional(None))?;
 
         let max_length = yaml
             .lookup("maxLength", "integer", Yaml::as_i64)
-            .and_then(|length| {
-                if length < 0 {
-                    return Err(SchemaErrorKind::MalformedField {
-                        error: "must be a non-negative integer value".into(),
-                    }
-                    .into());
-                }
-
-                usize::try_from(length).map_err(|_| {
-                    SchemaErrorKind::MalformedField {
-                        error: "value does not fit in a usize on this system".into(),
-                    }
-                    .into()
-                })
-            })
+            .and_then(try_into_usize)
             .map_err(add_path_name("maxLength"))
             .map(Option::from)
             .or_else(optional(None))?;

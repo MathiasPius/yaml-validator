@@ -1,5 +1,5 @@
 use crate::error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
-use crate::utils::YamlUtils;
+use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -7,12 +7,31 @@ use yaml_rust::Yaml;
 #[derive(Debug, Default)]
 pub(crate) struct SchemaArray<'schema> {
     items: Option<Box<PropertyType<'schema>>>,
+    min_items: Option<usize>,
+    max_items: Option<usize>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["items", "type"])?;
+        yaml.strict_contents(
+            &[],
+            &["type", "items", "maxItems", "minItems", "uniqueItems"],
+        )?;
+
+        let min_items = yaml
+            .lookup("minItems", "integer", Yaml::as_i64)
+            .and_then(try_into_usize)
+            .map_err(add_path_name("minItems"))
+            .map(Option::from)
+            .or_else(optional(None))?;
+
+        let max_items = yaml
+            .lookup("maxItems", "integer", Yaml::as_i64)
+            .and_then(try_into_usize)
+            .map_err(add_path_name("maxItems"))
+            .map(Option::from)
+            .or_else(optional(None))?;
 
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
@@ -26,9 +45,15 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
                     items: Some(Box::new(
                         PropertyType::try_from(inner).map_err(add_path_name("items"))?,
                     )),
+                    min_items,
+                    max_items,
                 })
             })
-            .or_else(optional(Ok(SchemaArray { items: None })))?
+            .or_else(optional(Ok(SchemaArray {
+                items: None,
+                min_items,
+                max_items,
+            })))?
     }
 }
 

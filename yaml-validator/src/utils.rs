@@ -1,4 +1,5 @@
 use crate::error::{SchemaError, SchemaErrorKind};
+use std::convert::TryInto;
 use std::fmt::Display;
 use std::ops::{Index, Sub};
 
@@ -57,6 +58,24 @@ where
             (Limit::Inclusive(lower), Limit::Exclusive(upper)) => (*upper - *lower) >= zero,
         }
     }
+}
+
+pub fn try_into_usize<'a, N: Default + PartialOrd + TryInto<usize>>(
+    number: N,
+) -> Result<usize, SchemaError<'a>> {
+    if number < N::default() {
+        return Err(SchemaErrorKind::MalformedField {
+            error: "must be a non-negative integer value".into(),
+        }
+        .into());
+    }
+
+    N::try_into(number).map_err(|_| {
+        SchemaErrorKind::MalformedField {
+            error: "value does not fit in a usize on this system".into(),
+        }
+        .into()
+    })
 }
 
 #[cfg(test)]
