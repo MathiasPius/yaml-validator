@@ -8,12 +8,13 @@ use yaml_rust::Yaml;
 #[derive(Debug, Default)]
 pub(crate) struct SchemaObject<'schema> {
     items: BTreeMap<&'schema str, PropertyType<'schema>>,
+    required: Option<Vec<&'schema str>>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["type"])?;
+        yaml.strict_contents(&["items"], &["type", "required"])?;
 
         let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
@@ -38,8 +39,38 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             }
         }
 
+        let required: Option<Result<(Vec<_>, Vec<_>), _>> = yaml.lookup("required", "array", Option::from)
+            .map(|_| {
+                Ok(yaml.lookup("required", "array", Yaml::as_vec)
+                    .map_err(add_path_name("required"))?
+                    .into_iter()
+                    .map(|item| {
+                        item.as_type("string", Yaml::as_str)
+                            .map_err(add_path_name("required"))
+                    })
+                    .partition(Result::is_ok))
+            })
+            .ok();
+
+        let required = match required {
+            Some(Ok((required, errs))) => {
+                if !errs.is_empty() {
+                    let errors: Vec<SchemaError<'schema>> =
+                        errs.into_iter().map(Result::unwrap_err).collect();
+                    return Err(SchemaErrorKind::Multiple { errors }.into());
+                } else {
+                    Some(required)
+                }
+            },
+            Some(Err(err)) => {
+                return Err(err);
+            },
+            None => None,
+        };
+
         Ok(SchemaObject {
             items: items.into_iter().map(Result::unwrap).collect(),
+            required: required.map(|req| req.into_iter().map(Result::unwrap).collect()),
         })
     }
 }
@@ -52,8 +83,17 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
     ) -> Result<(), SchemaError<'yaml>> {
         yaml.as_type("hash", Yaml::as_hash)?;
 
-        let items: Vec<&'schema str> = self.items.keys().copied().collect();
-        yaml.strict_contents(&items, &[])?;
+        let keys = self.items.keys().copied();
+        let (required, optional): (Vec<_>, Vec<_>) = match self.required {
+            Some(ref required) => {
+                        keys
+                        .partition(|key| {
+                            required.contains(&key)
+                        })
+                }
+            _ => (vec![], keys.collect()),
+        };
+        yaml.strict_contents(&required, &optional)?;
 
         let mut errors: Vec<SchemaError<'yaml>> = self
             .items
