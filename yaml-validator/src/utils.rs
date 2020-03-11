@@ -79,7 +79,7 @@ pub fn try_into_usize<'a, N: Default + PartialOrd + TryInto<usize>>(
 }
 
 #[cfg(test)]
-pub(crate) fn load_simple(source: &'static str) -> Yaml {
+pub(crate) fn load_simple(source: &str) -> Yaml {
     yaml_rust::YamlLoader::load_from_str(source)
         .unwrap()
         .remove(0)
