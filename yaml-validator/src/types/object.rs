@@ -376,3 +376,58 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod test_required_field {
+    use super::*;
+    use crate::utils::load_simple;
+    use crate::SchemaObject;
+
+    #[cfg(feature = "smallvec")]
+    use smallvec::smallvec;
+
+    #[test]
+    fn from_yaml() {
+        SchemaObject::try_from(&load_simple(
+            r#"
+            items:
+              something:
+                type: string
+            required: []
+        "#,
+        ))
+        .unwrap();
+    }
+
+macro_rules! add_creation_fail_tests {
+    ($(name: $name:ident, value: $value:literal, ty: $ty:expr),+) => {
+        $(
+            #[test]
+            fn $name() {
+                let data = format!(r#"
+                        items:
+                          something:
+                            type: string
+                        required: {}
+                "#, $value);
+                assert_eq!(
+                    SchemaObject::try_from(&load_simple(&data))
+                    .unwrap_err(),
+                    SchemaErrorKind::WrongType {
+                        expected: "array",
+                        actual: $ty
+                    }
+                    .with_path(path!["required"]),
+                );
+            }
+        )+
+    };
+}
+    add_creation_fail_tests!(
+        name: required_is_string, value: "some string", ty: "string",
+        name: required_is_int, value: 123, ty: "integer",
+        name: required_is_real, value: 1.23, ty: "real",
+        name: required_is_hash, value: "{ name: value }", ty: "hash"
+    );
+
+}
