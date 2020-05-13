@@ -6,8 +6,10 @@ pub use yaml_rust;
 use yaml_rust::Yaml;
 
 mod error;
+mod modifiers;
 mod types;
 mod utils;
+use modifiers::*;
 use types::*;
 
 use error::{add_path_name, optional};
@@ -97,6 +99,7 @@ enum PropertyType<'schema> {
     Integer(SchemaInteger),
     Real(SchemaReal),
     Reference(SchemaReference<'schema>),
+    Not(SchemaNot<'schema>),
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
@@ -110,13 +113,20 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             .into());
         }
 
-        let reference = yaml
+        if let Some(uri) = yaml
             .lookup("$ref", "string", Yaml::as_str)
             .map(Option::from)
-            .or_else(optional(None))?;
-
-        if let Some(uri) = reference {
+            .or_else(optional(None))?
+        {
             return Ok(PropertyType::Reference(SchemaReference { uri }));
+        }
+
+        if let Some(not) = yaml
+            .lookup("not", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+        {
+            return Ok(PropertyType::Not(SchemaNot::try_from(not)?));
         }
 
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
@@ -147,6 +157,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::Array(p) => p.validate(ctx, yaml),
             PropertyType::Hash(p) => p.validate(ctx, yaml),
             PropertyType::Reference(p) => p.validate(ctx, yaml),
+            PropertyType::Not(p) => p.validate(ctx, yaml),
         }
     }
 }
