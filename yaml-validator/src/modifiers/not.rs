@@ -37,8 +37,9 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaNot<'schema> {
         match self.item.validate(ctx, yaml) {
             Err(_) => Ok(()),
             Ok(_) => Err(SchemaErrorKind::ValidationError {
-                error: "validation inversion failed since inner result matched",
+                error: "validation inversion failed because inner result matched",
             }
+            .with_path_name("not")
             .into()),
         }
     }
@@ -48,8 +49,9 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaNot<'schema> {
 mod tests {
     use super::*;
     use crate::utils::load_simple;
-    //use crate::Context;
-    //use yaml_rust::YamlLoader;
+
+    #[cfg(feature = "smallvec")]
+    use smallvec::smallvec;
 
     #[test]
     fn not_from_yaml() {
@@ -92,5 +94,41 @@ mod tests {
             .unwrap_err(),
             SchemaErrorKind::ExtraField { field: "extra" }.into(),
         );
+    }
+
+    #[test]
+    fn validate_inversion_failure() {
+        let yaml = load_simple(
+            r#"
+            not:
+              type: integer
+            "#,
+        );
+        let schema = SchemaNot::try_from(&yaml).unwrap();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("20"))
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "validation inversion failed because inner result matched"
+            }
+            .with_path(path!["not"])
+        );
+    }
+
+    #[test]
+    fn validate_inversion_success() {
+        let yaml = load_simple(
+            r#"
+            not:
+              type: integer
+            "#,
+        );
+        let schema = SchemaNot::try_from(&yaml).unwrap();
+
+        schema
+            .validate(&Context::default(), &load_simple("hello world"))
+            .unwrap();
     }
 }
