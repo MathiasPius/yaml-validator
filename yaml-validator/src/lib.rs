@@ -12,7 +12,7 @@ mod utils;
 use modifiers::*;
 use types::*;
 
-use error::{add_path_name, optional};
+use error::{add_path_name, condense_errors, optional};
 pub use error::{SchemaError, SchemaErrorKind};
 
 use utils::YamlUtils;
@@ -70,15 +70,7 @@ impl<'schema> TryFrom<&'schema Vec<Yaml>> for Context<'schema> {
             .map(Schema::try_from)
             .partition(Result::is_ok);
 
-        if !errs.is_empty() {
-            let mut errors: Vec<SchemaError<'schema>> =
-                errs.into_iter().map(Result::unwrap_err).collect();
-            if errors.len() == 1 {
-                return Err(errors.pop().unwrap());
-            } else {
-                return Err(SchemaErrorKind::Multiple { errors }.into());
-            }
-        }
+        condense_errors(&mut errs.into_iter())?;
 
         Ok(Context {
             schemas: schemas

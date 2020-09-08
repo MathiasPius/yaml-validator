@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, SchemaError, SchemaErrorKind};
+use crate::error::{add_path_name, condense_errors, optional, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::collections::BTreeMap;
@@ -8,12 +8,13 @@ use yaml_rust::Yaml;
 #[derive(Debug, Default)]
 pub(crate) struct SchemaObject<'schema> {
     items: BTreeMap<&'schema str, PropertyType<'schema>>,
+    required: Option<Vec<&'schema str>>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["type"])?;
+        yaml.strict_contents(&["items"], &["type", "required"])?;
 
         let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
@@ -28,18 +29,32 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             })
             .partition(Result::is_ok);
 
-        if !errs.is_empty() {
-            let mut errors: Vec<SchemaError<'schema>> =
-                errs.into_iter().map(Result::unwrap_err).collect();
-            if errors.len() == 1 {
-                return Err(errors.pop().unwrap());
-            } else {
-                return Err(SchemaErrorKind::Multiple { errors }.into());
-            }
-        }
+        condense_errors(&mut errs.into_iter())?;
+
+        let required: Option<(Vec<_>, Vec<_>)> = yaml
+            .lookup("required", "array", Yaml::as_vec)
+            .map_err(add_path_name("required"))
+            .map(Option::from)
+            .or_else(optional(None))?
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|field| -> Result<&'schema str, Self::Error> {
+                        field.as_type("string", Yaml::as_str)
+                    })
+                    .partition(Result::is_ok)
+            });
+
+        let required = if let Some((required, errs)) = required {
+            condense_errors(&mut errs.into_iter())?;
+            Some(required.into_iter().map(Result::unwrap).collect())
+        } else {
+            None
+        };
 
         Ok(SchemaObject {
             items: items.into_iter().map(Result::unwrap).collect(),
+            required,
         })
     }
 }
@@ -55,29 +70,32 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         let items: Vec<&'schema str> = self.items.keys().copied().collect();
         yaml.strict_contents(&items, &[])?;
 
-        let mut errors: Vec<SchemaError<'yaml>> = self
-            .items
-            .iter()
-            .map(|(name, schema_item)| {
-                let item: &Yaml = yaml
-                    .lookup(name, "yaml", Option::from)
-                    .map_err(add_path_name(name))?;
+        let errors = self.items.iter().map(|(name, schema_item)| {
+            let item = yaml
+                .lookup(name, "yaml", Option::from)
+                .map_err(add_path_name(name))?;
 
-                schema_item
-                    .validate(ctx, item)
-                    .map_err(add_path_name(name))?;
-                Ok(())
-            })
-            .filter_map(Result::err)
-            .collect();
-
-        if errors.is_empty() {
+            schema_item
+                .validate(ctx, item)
+                .map_err(add_path_name(name))?;
             Ok(())
-        } else if errors.len() == 1 {
-            Err(errors.pop().unwrap())
-        } else {
-            Err(SchemaErrorKind::Multiple { errors }.into())
+        });
+
+        condense_errors(&mut errors.into_iter())?;
+
+        if let Some(required) = &self.required {
+            let errors = required.iter().map(|field| {
+                if !items.contains(field) {
+                    Err(SchemaErrorKind::FieldMissing { field }.with_path_name(field))
+                } else {
+                    Ok(())
+                }
+            });
+
+            condense_errors(&mut errors.into_iter())?;
         }
+
+        Ok(())
     }
 }
 

@@ -175,6 +175,22 @@ impl<'a> Into<SchemaError<'a>> for SchemaErrorKind<'a> {
     }
 }
 
+pub fn condense_errors<'a, T>(
+    iter: &mut dyn Iterator<Item = Result<T, SchemaError<'a>>>,
+) -> Result<(), SchemaError<'a>> {
+    let mut errors: Vec<SchemaError> = iter.filter_map(Result::err).collect();
+
+    if !errors.is_empty() {
+        if errors.len() == 1 {
+            return Err(errors.pop().unwrap());
+        } else {
+            return Err(SchemaErrorKind::Multiple { errors }.into());
+        }
+    } else {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::types::*;
