@@ -121,12 +121,12 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             return Ok(PropertyType::Reference(SchemaReference { uri }));
         }
 
-        if let Some(not) = yaml
+        if let Some(_) = yaml
             .lookup("not", "hash", Option::from)
             .map(Option::from)
             .or_else(optional(None))?
         {
-            return Ok(PropertyType::Not(SchemaNot::try_from(not)?));
+            return Ok(PropertyType::Not(SchemaNot::try_from(yaml)?));
         }
 
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;

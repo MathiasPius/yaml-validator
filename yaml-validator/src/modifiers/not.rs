@@ -12,6 +12,7 @@ pub(crate) struct SchemaNot<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaNot<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
+        println!("{:?}", yaml);
         yaml.strict_contents(&["not"], &[])?;
 
         // I'm using Option::from here because I don't actually want to transform
@@ -20,7 +21,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaNot<'schema> {
         yaml.lookup("not", "yaml", Option::from).map(|inner| {
             yaml.lookup("not", "hash", Yaml::as_hash)
                 .map_err(add_path_name("not"))?;
-
             Ok(SchemaNot {
                 item: Box::new(PropertyType::try_from(inner).map_err(add_path_name("not"))?),
             })
@@ -129,6 +129,22 @@ mod tests {
 
         schema
             .validate(&Context::default(), &load_simple("hello world"))
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_double_inversion() {
+        let yaml = load_simple(
+            r#"
+            not:
+              not:
+                type: integer
+            "#,
+        );
+        let schema = SchemaNot::try_from(&yaml).unwrap();
+
+        schema
+            .validate(&Context::default(), &load_simple("20"))
             .unwrap();
     }
 }
