@@ -48,7 +48,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaOneOf<'schema> {
         let (valid, errs): (Vec<_>, Vec<_>) = self
             .items
             .iter()
-            .map(|schema| schema.validate(ctx, yaml))
+            .map(|schema| schema.validate(ctx, yaml).map_err(add_path_name("oneOf")))
             .partition(Result::is_ok);
 
         match valid.len() {
@@ -147,5 +147,41 @@ mod tests {
         .unwrap()
         .validate(&Context::default(), &load_simple("10"))
         .unwrap();
+    }
+
+    #[test]
+    fn validate_complex_subvalidators() {
+        let yaml = load_simple(
+            r#"
+                oneOf:
+                  - type: string
+                    minLength: 10
+                  - type: string
+                    maxLength: 10
+                "#,
+        );
+
+        let schema = SchemaOneOf::try_from(&yaml).unwrap();
+
+        // Validate against a 11-character long string
+        schema
+            .validate(&Context::default(), &load_simple("hello world"))
+            .unwrap();
+
+        // Validate against a 9-character long string
+        schema
+            .validate(&Context::default(), &load_simple("hello you"))
+            .unwrap();
+
+        // Validate against a 10-character long string, causing overlap!
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("hello you!"))
+                .unwrap_err(),
+            SchemaErrorKind::MalformedField {
+                error: "more than 1 branch validated successfully. oneOf must only contain a single valid branch, but 2 branches validated successfully".to_owned()
+            }
+            .with_path_name("oneOf")
+        );
     }
 }
