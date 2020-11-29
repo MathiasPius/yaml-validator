@@ -12,7 +12,6 @@ pub(crate) struct SchemaNot<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaNot<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        println!("{:?}", yaml);
         yaml.strict_contents(&["not"], &[])?;
 
         // I'm using Option::from here because I don't actually want to transform
