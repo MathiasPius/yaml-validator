@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, SchemaError, SchemaErrorKind};
+use crate::error::{add_path_name, condense_errors, optional, SchemaError};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::collections::BTreeMap;
@@ -8,12 +8,13 @@ use yaml_rust::Yaml;
 #[derive(Debug, Default)]
 pub(crate) struct SchemaObject<'schema> {
     items: BTreeMap<&'schema str, PropertyType<'schema>>,
+    required: Option<Vec<&'schema str>>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["type"])?;
+        yaml.strict_contents(&["items"], &["type", "required"])?;
 
         let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
@@ -28,18 +29,32 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             })
             .partition(Result::is_ok);
 
-        if !errs.is_empty() {
-            let mut errors: Vec<SchemaError<'schema>> =
-                errs.into_iter().map(Result::unwrap_err).collect();
-            if errors.len() == 1 {
-                return Err(errors.pop().unwrap());
-            } else {
-                return Err(SchemaErrorKind::Multiple { errors }.into());
-            }
-        }
+        condense_errors(&mut errs.into_iter())?;
+
+        let required: Option<(Vec<_>, Vec<_>)> = yaml
+            .lookup("required", "array", Yaml::as_vec)
+            .map_err(add_path_name("required"))
+            .map(Option::from)
+            .or_else(optional(None))?
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|field| -> Result<&'schema str, Self::Error> {
+                        field.as_type("string", Yaml::as_str)
+                    })
+                    .partition(Result::is_ok)
+            });
+
+        let required = if let Some((required, errs)) = required {
+            condense_errors(&mut errs.into_iter())?;
+            Some(required.into_iter().map(Result::unwrap).collect())
+        } else {
+            None
+        };
 
         Ok(SchemaObject {
             items: items.into_iter().map(Result::unwrap).collect(),
+            required,
         })
     }
 }
@@ -53,31 +68,27 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         yaml.as_type("hash", Yaml::as_hash)?;
 
         let items: Vec<&'schema str> = self.items.keys().copied().collect();
-        yaml.strict_contents(&items, &[])?;
+        let required = self.required.as_ref().cloned().unwrap_or_default();
+        yaml.strict_contents(&required, &items)?;
 
-        let mut errors: Vec<SchemaError<'yaml>> = self
-            .items
-            .iter()
-            .map(|(name, schema_item)| {
-                let item: &Yaml = yaml
-                    .lookup(name, "yaml", Option::from)
-                    .map_err(add_path_name(name))?;
+        let mut errors = self.items.iter().map(|(name, schema_item)| {
+            let item = yaml
+                .lookup(name, "yaml", Option::from)
+                .map(Option::Some)
+                .map_err(add_path_name(name))
+                .or_else(optional(None))?;
 
+            if let Some(item) = item {
                 schema_item
                     .validate(ctx, item)
                     .map_err(add_path_name(name))?;
-                Ok(())
-            })
-            .filter_map(Result::err)
-            .collect();
+            }
 
-        if errors.is_empty() {
             Ok(())
-        } else if errors.len() == 1 {
-            Err(errors.pop().unwrap())
-        } else {
-            Err(SchemaErrorKind::Multiple { errors }.into())
-        }
+        });
+
+        condense_errors(&mut errors)?;
+        Ok(())
     }
 }
 
@@ -85,7 +96,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
 mod tests {
     use super::*;
     use crate::utils::load_simple;
-    use crate::SchemaObject;
+    use crate::{SchemaErrorKind, SchemaObject};
 
     #[cfg(feature = "smallvec")]
     use smallvec::smallvec;
@@ -333,6 +344,90 @@ mod tests {
                 ]
             }
             .into()
+        );
+    }
+
+    #[test]
+    fn validate_optional() {
+        let yaml = load_simple(
+            r#"
+            items:
+              hello:
+                type: string
+              world:
+                type: integer
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+
+        schema
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
+                            hello: world
+                        "#,
+                ),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_eq() {
+        let yaml = load_simple(
+            r#"
+            items:
+              hello:
+                type: string
+              world:
+                type: integer
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+
+        schema
+            .validate(
+                &Context::default(),
+                &load_simple(
+                    r#"
+                            hello: world
+                        "#,
+                ),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn validate_required() {
+        let yaml = load_simple(
+            r#"
+            items:
+              hello:
+                type: string
+              world:
+                type: integer
+            required:
+                - hello
+                - world
+            "#,
+        );
+
+        let schema = SchemaObject::try_from(&yaml).unwrap();
+
+        assert_eq!(
+            schema
+                .validate(
+                    &Context::default(),
+                    &load_simple(
+                        r#"
+                            hello: world
+                        "#,
+                    )
+                )
+                .unwrap_err(),
+            SchemaErrorKind::FieldMissing { field: "world" }.into()
         );
     }
 }

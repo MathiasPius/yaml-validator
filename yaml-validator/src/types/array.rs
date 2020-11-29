@@ -1,4 +1,6 @@
-use crate::error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
+use crate::error::{
+    add_path_index, add_path_name, condense_errors, optional, SchemaError, SchemaErrorKind,
+};
 use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::HashSet;
@@ -206,21 +208,12 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
         };
 
         if let Some(schema) = &self.items {
-            let mut errors: Vec<SchemaError<'yaml>> = items
+            let mut errors = items
                 .iter()
                 .enumerate()
-                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)))
-                .filter(Result::is_err)
-                .map(Result::unwrap_err)
-                .collect();
+                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)));
 
-            return if errors.is_empty() {
-                Ok(())
-            } else if errors.len() == 1 {
-                Err(errors.pop().unwrap())
-            } else {
-                Err(SchemaErrorKind::Multiple { errors }.into())
-            };
+            condense_errors(&mut errors)?;
         }
 
         Ok(())

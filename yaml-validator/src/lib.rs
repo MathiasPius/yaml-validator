@@ -6,11 +6,13 @@ pub use yaml_rust;
 use yaml_rust::Yaml;
 
 mod error;
+mod modifiers;
 mod types;
 mod utils;
+use modifiers::*;
 use types::*;
 
-use error::{add_path_name, optional};
+use error::{add_path_name, condense_errors, optional};
 pub use error::{SchemaError, SchemaErrorKind};
 
 use utils::YamlUtils;
@@ -68,15 +70,7 @@ impl<'schema> TryFrom<&'schema Vec<Yaml>> for Context<'schema> {
             .map(Schema::try_from)
             .partition(Result::is_ok);
 
-        if !errs.is_empty() {
-            let mut errors: Vec<SchemaError<'schema>> =
-                errs.into_iter().map(Result::unwrap_err).collect();
-            if errors.len() == 1 {
-                return Err(errors.pop().unwrap());
-            } else {
-                return Err(SchemaErrorKind::Multiple { errors }.into());
-            }
-        }
+        condense_errors(&mut errs.into_iter())?;
 
         Ok(Context {
             schemas: schemas
@@ -97,6 +91,10 @@ enum PropertyType<'schema> {
     Integer(SchemaInteger),
     Real(SchemaReal),
     Reference(SchemaReference<'schema>),
+    Not(SchemaNot<'schema>),
+    OneOf(SchemaOneOf<'schema>),
+    AllOf(SchemaAllOf<'schema>),
+    AnyOf(SchemaAnyOf<'schema>),
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
@@ -110,13 +108,48 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             .into());
         }
 
-        let reference = yaml
+        if let Some(uri) = yaml
             .lookup("$ref", "string", Yaml::as_str)
             .map(Option::from)
-            .or_else(optional(None))?;
-
-        if let Some(uri) = reference {
+            .or_else(optional(None))?
+        {
             return Ok(PropertyType::Reference(SchemaReference { uri }));
+        }
+
+        if yaml
+            .lookup("not", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+            .is_some()
+        {
+            return Ok(PropertyType::Not(SchemaNot::try_from(yaml)?));
+        }
+
+        if yaml
+            .lookup("oneOf", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+            .is_some()
+        {
+            return Ok(PropertyType::OneOf(SchemaOneOf::try_from(yaml)?));
+        }
+
+        if yaml
+            .lookup("allOf", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+            .is_some()
+        {
+            return Ok(PropertyType::AllOf(SchemaAllOf::try_from(yaml)?));
+        }
+
+        if yaml
+            .lookup("anyOf", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+            .is_some()
+        {
+            return Ok(PropertyType::AnyOf(SchemaAnyOf::try_from(yaml)?));
         }
 
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
@@ -147,6 +180,10 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::Array(p) => p.validate(ctx, yaml),
             PropertyType::Hash(p) => p.validate(ctx, yaml),
             PropertyType::Reference(p) => p.validate(ctx, yaml),
+            PropertyType::Not(p) => p.validate(ctx, yaml),
+            PropertyType::OneOf(p) => p.validate(ctx, yaml),
+            PropertyType::AllOf(p) => p.validate(ctx, yaml),
+            PropertyType::AnyOf(p) => p.validate(ctx, yaml),
         }
     }
 }
