@@ -182,9 +182,9 @@ pub fn condense_errors<'a, T>(
 
     if !errors.is_empty() {
         if errors.len() == 1 {
-            return Err(errors.pop().unwrap());
+            Err(errors.pop().unwrap())
         } else {
-            return Err(SchemaErrorKind::Multiple { errors }.into());
+            Err(SchemaErrorKind::Multiple { errors }.into())
         }
     } else {
         Ok(())

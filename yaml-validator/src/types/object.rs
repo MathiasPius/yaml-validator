@@ -71,7 +71,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         let required = self.required.as_ref().cloned().unwrap_or_default();
         yaml.strict_contents(&required, &items)?;
 
-        let errors = self.items.iter().map(|(name, schema_item)| {
+        let mut errors = self.items.iter().map(|(name, schema_item)| {
             let item = yaml
                 .lookup(name, "yaml", Option::from)
                 .map(Option::Some)
@@ -87,7 +87,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
             Ok(())
         });
 
-        condense_errors(&mut errors.into_iter())?;
+        condense_errors(&mut errors)?;
         Ok(())
     }
 }

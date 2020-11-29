@@ -208,12 +208,12 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
         };
 
         if let Some(schema) = &self.items {
-            let errors = items
+            let mut errors = items
                 .iter()
                 .enumerate()
                 .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)));
 
-            condense_errors(&mut errors.into_iter())?;
+            condense_errors(&mut errors)?;
         }
 
         Ok(())

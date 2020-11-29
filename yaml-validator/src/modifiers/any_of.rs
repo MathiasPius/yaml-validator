@@ -6,7 +6,7 @@ use yaml_rust::Yaml;
 
 #[derive(Debug)]
 pub(crate) struct SchemaAnyOf<'schema> {
-    items: Vec<Box<PropertyType<'schema>>>,
+    items: Vec<PropertyType<'schema>>,
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaAnyOf<'schema> {
@@ -17,11 +17,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaAnyOf<'schema> {
         let (items, errs): (Vec<_>, Vec<_>) = yaml
             .lookup("anyOf", "array", Yaml::as_vec)?
             .iter()
-            .map(|property| {
-                PropertyType::try_from(property)
-                    .map_err(add_path_name("items"))
-                    .map(Box::new)
-            })
+            .map(|property| PropertyType::try_from(property).map_err(add_path_name("items")))
             .partition(Result::is_ok);
 
         condense_errors(&mut errs.into_iter())?;

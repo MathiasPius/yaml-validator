@@ -38,8 +38,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaNot<'schema> {
             Ok(_) => Err(SchemaErrorKind::ValidationError {
                 error: "validation inversion failed because inner result matched",
             }
-            .with_path_name("not")
-            .into()),
+            .with_path_name("not")),
         }
     }
 }

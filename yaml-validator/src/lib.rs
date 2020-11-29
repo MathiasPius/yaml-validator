@@ -116,34 +116,38 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             return Ok(PropertyType::Reference(SchemaReference { uri }));
         }
 
-        if let Some(_) = yaml
+        if yaml
             .lookup("not", "hash", Option::from)
             .map(Option::from)
             .or_else(optional(None))?
+            .is_some()
         {
             return Ok(PropertyType::Not(SchemaNot::try_from(yaml)?));
         }
 
-        if let Some(_) = yaml
+        if yaml
             .lookup("oneOf", "hash", Option::from)
             .map(Option::from)
             .or_else(optional(None))?
+            .is_some()
         {
             return Ok(PropertyType::OneOf(SchemaOneOf::try_from(yaml)?));
         }
 
-        if let Some(_) = yaml
+        if yaml
             .lookup("allOf", "hash", Option::from)
             .map(Option::from)
             .or_else(optional(None))?
+            .is_some()
         {
             return Ok(PropertyType::AllOf(SchemaAllOf::try_from(yaml)?));
         }
 
-        if let Some(_) = yaml
+        if yaml
             .lookup("anyOf", "hash", Option::from)
             .map(Option::from)
             .or_else(optional(None))?
+            .is_some()
         {
             return Ok(PropertyType::AnyOf(SchemaAnyOf::try_from(yaml)?));
         }
