@@ -93,6 +93,8 @@ enum PropertyType<'schema> {
     Reference(SchemaReference<'schema>),
     Not(SchemaNot<'schema>),
     OneOf(SchemaOneOf<'schema>),
+    AllOf(SchemaAllOf<'schema>),
+    AnyOf(SchemaAnyOf<'schema>),
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
@@ -130,6 +132,22 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             return Ok(PropertyType::OneOf(SchemaOneOf::try_from(yaml)?));
         }
 
+        if let Some(_) = yaml
+            .lookup("allOf", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+        {
+            return Ok(PropertyType::AllOf(SchemaAllOf::try_from(yaml)?));
+        }
+
+        if let Some(_) = yaml
+            .lookup("anyOf", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+        {
+            return Ok(PropertyType::AnyOf(SchemaAnyOf::try_from(yaml)?));
+        }
+
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
 
         match typename {
@@ -160,6 +178,8 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::Reference(p) => p.validate(ctx, yaml),
             PropertyType::Not(p) => p.validate(ctx, yaml),
             PropertyType::OneOf(p) => p.validate(ctx, yaml),
+            PropertyType::AllOf(p) => p.validate(ctx, yaml),
+            PropertyType::AnyOf(p) => p.validate(ctx, yaml),
         }
     }
 }
