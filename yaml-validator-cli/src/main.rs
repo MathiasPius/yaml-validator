@@ -120,7 +120,7 @@ fn actual_main(opt: Opt) -> Result<(), Error> {
     Ok(())
 }
 
-fn main() -> () {
+fn main() {
     let opt = Opt::from_args();
 
     match actual_main(opt) {
@@ -130,8 +130,6 @@ fn main() -> () {
             std::process::exit(1);
         }
     }
-
-    ()
 }
 
 #[cfg(test)]
