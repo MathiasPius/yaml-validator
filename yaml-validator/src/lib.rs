@@ -92,6 +92,7 @@ enum PropertyType<'schema> {
     Real(SchemaReal),
     Reference(SchemaReference<'schema>),
     Not(SchemaNot<'schema>),
+    OneOf(SchemaOneOf<'schema>),
 }
 
 impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
@@ -119,6 +120,14 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             .or_else(optional(None))?
         {
             return Ok(PropertyType::Not(SchemaNot::try_from(yaml)?));
+        }
+
+        if let Some(_) = yaml
+            .lookup("oneOf", "hash", Option::from)
+            .map(Option::from)
+            .or_else(optional(None))?
+        {
+            return Ok(PropertyType::OneOf(SchemaOneOf::try_from(yaml)?));
         }
 
         let typename = yaml.lookup("type", "string", Yaml::as_str)?;
@@ -150,6 +159,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::Hash(p) => p.validate(ctx, yaml),
             PropertyType::Reference(p) => p.validate(ctx, yaml),
             PropertyType::Not(p) => p.validate(ctx, yaml),
+            PropertyType::OneOf(p) => p.validate(ctx, yaml),
         }
     }
 }
