@@ -89,7 +89,7 @@ fn actual_main(opt: Opt) -> Result<(), Error> {
     }
 
     let yaml_schemas = load_yaml(&opt.schemas).map_err(Error::Multiple)?;
-    let context = Context::try_from(&yaml_schemas)?;
+    let context = Context::try_from(&yaml_schemas[..])?;
 
     let schema = {
         if let Some(schema) = context.get_schema(&opt.uri) {

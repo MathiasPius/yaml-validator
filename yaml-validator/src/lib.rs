@@ -50,7 +50,7 @@ impl<'schema> Context<'schema> {
     ///     "#).unwrap().remove(0)
     /// ];
     ///
-    /// let context = Context::try_from(&schemas).unwrap();
+    /// let context = Context::try_from(&schemas[..]).unwrap();
     /// let document = YamlLoader::load_from_str("10").unwrap().remove(0);
     ///
     /// context.get_schema("just-a-number").unwrap()
@@ -62,9 +62,9 @@ impl<'schema> Context<'schema> {
 }
 
 /// A context can only be created from a vector of Yaml documents, all of which must fit the schema layout.
-impl<'schema> TryFrom<&'schema Vec<Yaml>> for Context<'schema> {
+impl<'schema> TryFrom<&'schema [Yaml]> for Context<'schema> {
     type Error = SchemaError<'schema>;
-    fn try_from(documents: &'schema Vec<Yaml>) -> Result<Self, Self::Error> {
+    fn try_from(documents: &'schema [Yaml]) -> Result<Self, Self::Error> {
         let (schemas, errs): (Vec<_>, Vec<_>) = documents
             .iter()
             .map(Schema::try_from)
@@ -240,7 +240,7 @@ schema:
         )
         .unwrap();
 
-        let context = Context::try_from(&yaml).unwrap();
+        let context = Context::try_from(&yaml[..]).unwrap();
         let schema = context.get_schema("another").unwrap();
         dbg!(&context);
         dbg!(&schema);
