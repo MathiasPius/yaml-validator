@@ -2,15 +2,9 @@ on:
   push:
     branches:
       - master
-    paths:
-      - '**/src/*'
-      - '.github/workflows/*'
   pull_request:
-    paths:
-      - '**/Cargo.toml'
-      - '**/src/*'
-      - '.github/workflows/*'
-
+    branches:
+      - master
 
 name: library-tests
 
