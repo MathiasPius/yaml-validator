@@ -11,4 +11,4 @@ keywords = ["YAML", "validation", "schema"]
 
 [dependencies]
 yaml-validator = { "path" = "../yaml-validator", version = "0.1.0" }
-structopt = "0.3.9"
+structopt = "0.3.21"
