@@ -98,9 +98,6 @@ mod tests {
     use crate::utils::load_simple;
     use crate::{SchemaErrorKind, SchemaObject};
 
-    #[cfg(feature = "smallvec")]
-    use smallvec::smallvec;
-
     #[test]
     fn from_yaml() {
         SchemaObject::try_from(&load_simple(
