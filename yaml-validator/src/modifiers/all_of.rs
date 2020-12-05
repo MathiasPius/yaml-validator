@@ -64,9 +64,6 @@ mod tests {
     use super::*;
     use crate::utils::load_simple;
 
-    #[cfg(feature = "smallvec")]
-    use smallvec::smallvec;
-
     #[test]
     fn one_of_from_yaml() {
         SchemaAllOf::try_from(&load_simple(
