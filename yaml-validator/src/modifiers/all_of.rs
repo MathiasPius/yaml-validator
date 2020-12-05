@@ -1,4 +1,4 @@
-use crate::error::{add_path_index, add_path_name, condense_errors, SchemaError, SchemaErrorKind};
+use crate::error::{add_path_name, condense_errors, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -45,12 +45,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaAllOf<'schema> {
             .items
             .iter()
             .enumerate()
-            .map(|(id, schema)| {
-                schema
-                    .validate(ctx, yaml)
-                    .map_err(add_path_name("allOf"))
-                    .map_err(add_path_index(id))
-            })
+            .map(|(_, schema)| schema.validate(ctx, yaml))
             .filter(Result::is_err)
             .collect();
 
@@ -134,7 +129,7 @@ mod tests {
             SchemaErrorKind::ValidationError {
                 error: "string length is less than minLength"
             }
-            .with_path(path!["allOf", 0])
+            .into()
         );
     }
 }

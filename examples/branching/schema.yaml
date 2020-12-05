@@ -1,0 +1,30 @@
+---
+uri: must-contain-letter
+schema:
+  type: string
+  pattern: .*[a-zA-Z].*
+
+---
+uri: must-contain-number
+schema:
+  type: string
+  pattern: .*[0-9].*
+
+---
+uri: must-contain-letter-and-number
+schema:
+  allOf:
+    - $ref: must-contain-letter
+    - $ref: must-contain-number
+
+---
+uri: user-list
+schema:
+  type: array
+  items:
+    type: object
+    items:
+      username:
+        type: string
+      password:
+        $ref: must-contain-letter-and-number

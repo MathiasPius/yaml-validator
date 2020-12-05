@@ -1,4 +1,4 @@
-use crate::error::{add_path_index, add_path_name, condense_errors, SchemaError, SchemaErrorKind};
+use crate::error::{add_path_name, condense_errors, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -45,13 +45,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaOneOf<'schema> {
             .items
             .iter()
             .enumerate()
-            .map(|(id, schema)| {
-                schema
-                    .validate(ctx, yaml)
-                    .map(|valid| (valid, id))
-                    .map_err(add_path_name("oneOf"))
-                    .map_err(add_path_index(id))
-            })
+            .map(|(id, schema)| schema.validate(ctx, yaml).map(|valid| (valid, id)))
             .partition(Result::is_ok);
 
         match valid.len() {
