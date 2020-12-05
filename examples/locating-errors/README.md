@@ -1,0 +1,1 @@
+This example is designed to *fail* the schema validation, it is not an example of a valid schema/yaml file setup!

@@ -13,6 +13,22 @@ schema:
         type: string
     price: 
       type: real
+      minimum: 0.00
+
+---
+uri: customer-name
+schema:
+  oneOf:
+    - type: object
+      items:
+        first name:
+          type: string
+        last name:
+          type: string
+      required:
+        - first name
+        - last name
+    - type: string
 
 ---
 uri: customer
@@ -20,11 +36,14 @@ schema:
   type: object
   items:
     name:
-      type: string
+      $ref: customer-name
     cars:
       type: hash
       items:
         $ref: car
+  required:
+    - name
+    - cars
 
 ---
 uri: customer-list

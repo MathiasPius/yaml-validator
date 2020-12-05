@@ -1,5 +1,7 @@
 ---
-- name: Teodor Fælgen
+- name:
+    first name: Teodor
+    last name: Fælgen
   cars:
     work:
       year: 1908
