@@ -4,9 +4,3 @@
   age: 12.5
 - name: 200
   age: Jimmy
-
-# example usage:
-# yaml-validator-cli        \
-#     --schema schema.yaml  \
-#     --uri phonebook       \
-#     phonebook.yaml
