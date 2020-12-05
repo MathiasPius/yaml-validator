@@ -335,12 +335,12 @@ mod tests {
                         expected: "string",
                         actual: "integer"
                     }
-                    .with_path(path!["hello"]),
+                    .with_path_name("hello"),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(path!["world"])
+                    .with_path_name("world")
                 ]
             }
             .into()

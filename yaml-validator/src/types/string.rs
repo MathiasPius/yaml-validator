@@ -128,9 +128,6 @@ mod tests {
     use crate::utils::load_simple;
     use crate::SchemaString;
 
-    #[cfg(feature = "smallvec")]
-    use smallvec::smallvec;
-
     #[test]
     fn from_yaml() {
         SchemaString::try_from(&load_simple("type: string")).unwrap();
@@ -203,7 +200,7 @@ mod tests {
             SchemaErrorKind::MalformedField {
                 error: "must be a non-negative integer value".into()
             }
-            .with_path(path!["maxLength"])
+            .with_path_name("maxLength")
         );
     }
 
@@ -221,7 +218,7 @@ mod tests {
                 actual: "real",
                 expected: "integer"
             }
-            .with_path(path!["minLength"])
+            .with_path_name("minLength")
         );
     }
 
