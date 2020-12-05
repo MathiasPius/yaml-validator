@@ -189,6 +189,24 @@ mod tests {
     }
 
     #[test]
+    fn test_branching_examples() {
+        assert_eq!(
+            actual_main(Opt {
+                schemas: vec!["../examples/branching/schema.yaml".into()],
+                files: vec!["../examples/branching/usernames.yaml".into()],
+                uri: "user-list".into(),
+            })
+            .unwrap_err(),
+            Error::ValidationError(
+                "../examples/branching/usernames.yaml:
+#[2].password: special requirements for field not met: supplied value does not match regex pattern for field
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
     fn test_non_existent_schema_file() {
         assert_eq!(
             actual_main(Opt {

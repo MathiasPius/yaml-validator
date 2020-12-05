@@ -1,0 +1,9 @@
+---
+- username: mulder
+  password: trustno1
+
+- username: neo
+  password: hunter2
+
+- username: karen
+  password: password
