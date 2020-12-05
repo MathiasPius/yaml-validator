@@ -48,9 +48,6 @@ mod tests {
     use super::*;
     use crate::utils::load_simple;
 
-    #[cfg(feature = "smallvec")]
-    use smallvec::smallvec;
-
     #[test]
     fn not_from_yaml() {
         SchemaNot::try_from(&load_simple(
@@ -111,7 +108,7 @@ mod tests {
             SchemaErrorKind::ValidationError {
                 error: "validation inversion failed because inner result matched"
             }
-            .with_path(path!["not"])
+            .with_path_name("not")
         );
     }
 

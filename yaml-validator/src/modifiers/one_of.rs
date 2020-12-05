@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, condense_errors, SchemaError, SchemaErrorKind};
+use crate::error::{add_path_index, add_path_name, condense_errors, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -44,18 +44,37 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaOneOf<'schema> {
         let (valid, errs): (Vec<_>, Vec<_>) = self
             .items
             .iter()
-            .map(|schema| schema.validate(ctx, yaml).map_err(add_path_name("oneOf")))
+            .enumerate()
+            .map(|(id, schema)| {
+                schema
+                    .validate(ctx, yaml)
+                    .map(|valid| (valid, id))
+                    .map_err(add_path_name("oneOf"))
+                    .map_err(add_path_index(id))
+            })
             .partition(Result::is_ok);
 
         match valid.len() {
             0 => {
-                // If none of the options matched, return the errors
-                // from ALL the arms
+                // If none of the options matched, return the errors from ALL the arms
                 Err(condense_errors(&mut errs.into_iter()).unwrap_err())
-            },
+            }
             1 => Ok(()),
             _ => {
-                Err(SchemaErrorKind::MalformedField { error: format!("more than 1 branch validated successfully. oneOf must only contain a single valid branch, but {} branches validated successfully", valid.len())}.with_path_name("oneOf"))
+                // Generate an 'error' for each of the arms that validated correctly, using their index. in the oneOf array
+                Err(SchemaErrorKind::Multiple {
+                    errors: valid
+                        .into_iter()
+                        .map(Result::unwrap)
+                        .map(|(_, id)| {
+                            SchemaErrorKind::ValidationError {
+                                error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch",
+                            }
+                            .with_path_index(id)
+                        })
+                        .collect(),
+                }
+                .with_path_name("oneOf"))
             }
         }
     }
@@ -123,8 +142,10 @@ mod tests {
             .unwrap()
             .validate(&Context::default(), &load_simple("10"))
             .unwrap_err(),
-            SchemaErrorKind::MalformedField { error: "more than 1 branch validated successfully. oneOf must only contain a single valid branch, but 2 branches validated successfully".to_owned() }.with_path_name("oneOf")
-            .into()
+            SchemaErrorKind::Multiple { errors: vec![
+                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(0),
+                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(1),
+            ]}.with_path_name("oneOf")
         )
     }
 
@@ -171,10 +192,10 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello you!"))
                 .unwrap_err(),
-            SchemaErrorKind::MalformedField {
-                error: "more than 1 branch validated successfully. oneOf must only contain a single valid branch, but 2 branches validated successfully".to_owned()
-            }
-            .with_path_name("oneOf")
+            SchemaErrorKind::Multiple { errors: vec![
+                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(0),
+                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(1),
+            ]}.with_path_name("oneOf")
         );
     }
 }

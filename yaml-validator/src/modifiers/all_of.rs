@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, condense_errors, SchemaError, SchemaErrorKind};
+use crate::error::{add_path_index, add_path_name, condense_errors, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -44,7 +44,13 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaAllOf<'schema> {
         let errs: Vec<_> = self
             .items
             .iter()
-            .map(|schema| schema.validate(ctx, yaml).map_err(add_path_name("allOf")))
+            .enumerate()
+            .map(|(id, schema)| {
+                schema
+                    .validate(ctx, yaml)
+                    .map_err(add_path_name("allOf"))
+                    .map_err(add_path_index(id))
+            })
             .filter(Result::is_err)
             .collect();
 
@@ -57,6 +63,9 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaAllOf<'schema> {
 mod tests {
     use super::*;
     use crate::utils::load_simple;
+
+    #[cfg(feature = "smallvec")]
+    use smallvec::smallvec;
 
     #[test]
     fn one_of_from_yaml() {
@@ -120,5 +129,15 @@ mod tests {
         schema
             .validate(&Context::default(), &load_simple("hello you!"))
             .unwrap();
+
+        assert_eq!(
+            schema
+                .validate(&Context::default(), &load_simple("hi"))
+                .unwrap_err(),
+            SchemaErrorKind::ValidationError {
+                error: "string length is less than minLength"
+            }
+            .with_path(path!["allOf", 0])
+        );
     }
 }

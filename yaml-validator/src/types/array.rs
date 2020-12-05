@@ -226,9 +226,6 @@ mod tests {
     use crate::utils::load_simple;
     use crate::SchemaArray;
 
-    #[cfg(feature = "smallvec")]
-    use smallvec::smallvec;
-
     #[test]
     fn from_yaml() {
         SchemaArray::try_from(&load_simple(
@@ -254,7 +251,7 @@ mod tests {
                 expected: "hash",
                 actual: "array"
             }
-            .with_path(path!["items"])
+            .with_path_name("items")
             .into(),
         );
     }
@@ -616,17 +613,17 @@ mod tests {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(path![0]),
+                    .with_path_index(0),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
-                    .with_path(path![4]),
+                    .with_path_index(4),
                     SchemaErrorKind::WrongType {
                         expected: "integer",
                         actual: "hash"
                     }
-                    .with_path(path![6])
+                    .with_path_index(6)
                 ]
             }
             .into()

@@ -68,9 +68,6 @@ mod tests {
     use crate::utils::load_simple;
     use crate::SchemaHash;
 
-    #[cfg(feature = "smallvec")]
-    use smallvec::smallvec;
-
     #[test]
     fn from_yaml() {
         SchemaHash::try_from(&load_simple(
@@ -96,7 +93,7 @@ mod tests {
                 expected: "hash",
                 actual: "array"
             }
-            .with_path(path!["items"])
+            .with_path_name("items")
             .into(),
         );
     }
@@ -210,7 +207,7 @@ mod tests {
                 expected: "integer",
                 actual: "string"
             }
-            .with_path(path![1])
+            .with_path_index(1)
         );
     }
 }

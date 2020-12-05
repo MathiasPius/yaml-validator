@@ -11,7 +11,7 @@ pub type PathVec<'a> = Vec<PathSegment<'a>>;
 #[cfg(feature = "smallvec")]
 macro_rules! path{
     ( $( $x:expr ),* ) => {
-        smallvec![
+        smallvec::smallvec![
             $(crate::error::PathSegment::from($x),)*
         ]
     }
