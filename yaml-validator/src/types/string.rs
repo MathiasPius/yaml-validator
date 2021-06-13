@@ -65,8 +65,8 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
                 .transpose()?;
 
             Ok(SchemaString {
-                min_length,
                 max_length,
+                min_length,
                 pattern,
             })
         }

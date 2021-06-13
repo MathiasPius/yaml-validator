@@ -101,15 +101,15 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         // This does not seem like the nicest way to do this...
         match (&contains, &min_contains, &max_contains) {
-            (None   , Some(_)  , None     ) => Err(SchemaErrorKind::MalformedField {
+            (None   , Some(_)  , None     ) => Err(SchemaError::from(SchemaErrorKind::MalformedField {
                 error: "minContains requires 'contains' to specify a schema to validate against".into()
-            }.into()),
-            (None   , None     , Some(_)  ) => Err(SchemaErrorKind::MalformedField {
+            })),
+            (None   , None     , Some(_)  ) => Err(SchemaError::from(SchemaErrorKind::MalformedField {
                 error: "maxContains requires 'contains' to specify a schema to validate against".into()
-            }.into()),
-            (None   , Some(_)  , Some(_)  ) => Err(SchemaErrorKind::MalformedField {
+            })),
+            (None   , Some(_)  , Some(_)  ) => Err(SchemaError::from(SchemaErrorKind::MalformedField {
                 error: "minContains and maxContains requires 'contains' to specify a schema to validate against".into()
-            }.into()),
+            })),
             (Some(_), Some(min), Some(max)) => {
                 if min > max {
                     Err(SchemaErrorKind::MalformedField {
