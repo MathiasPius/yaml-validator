@@ -15,6 +15,7 @@ use types::*;
 use error::{add_path_name, condense_errors, optional};
 pub use error::{SchemaError, SchemaErrorKind};
 
+use crate::types::bool::SchemaBool;
 use utils::YamlUtils;
 
 /// Validation trait implemented by all types, as well as the [Schema](crate::Schema) type
@@ -90,6 +91,7 @@ enum PropertyType<'schema> {
     String(SchemaString),
     Integer(SchemaInteger),
     Real(SchemaReal),
+    Bool(SchemaBool),
     Reference(SchemaReference<'schema>),
     Not(SchemaNot<'schema>),
     OneOf(SchemaOneOf<'schema>),
@@ -161,6 +163,7 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
             "real" => Ok(PropertyType::Real(SchemaReal::try_from(yaml)?)),
             "array" => Ok(PropertyType::Array(SchemaArray::try_from(yaml)?)),
             "hash" => Ok(PropertyType::Hash(SchemaHash::try_from(yaml)?)),
+            "boolean" => Ok(PropertyType::Bool(SchemaBool::try_from(yaml)?)),
             unknown_type => Err(SchemaErrorKind::UnknownType { unknown_type }.into()),
         }
     }
@@ -184,6 +187,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
             PropertyType::OneOf(p) => p.validate(ctx, yaml),
             PropertyType::AllOf(p) => p.validate(ctx, yaml),
             PropertyType::AnyOf(p) => p.validate(ctx, yaml),
+            PropertyType::Bool(p) => p.validate(ctx, yaml),
         }
     }
 }

@@ -1,4 +1,5 @@
 pub(crate) mod array;
+pub(crate) mod bool;
 pub(crate) mod hash;
 pub(crate) mod integer;
 pub(crate) mod object;
