@@ -1,5 +1,5 @@
-use crate::error::{add_path_name, optional, SchemaError, SchemaErrorKind};
-use crate::utils::{try_into_usize, YamlUtils};
+use crate::error::SchemaError;
+use crate::utils::YamlUtils;
 use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
