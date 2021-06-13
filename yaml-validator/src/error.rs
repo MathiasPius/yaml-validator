@@ -166,10 +166,10 @@ pub fn optional<'a, T>(default: T) -> impl FnOnce(SchemaError<'a>) -> Result<T, 
     }
 }
 
-impl<'a> Into<SchemaError<'a>> for SchemaErrorKind<'a> {
-    fn into(self) -> SchemaError<'a> {
+impl<'a> From<SchemaErrorKind<'a>> for SchemaError<'a> {
+    fn from(kind: SchemaErrorKind<'a>) -> SchemaError<'a> {
         SchemaError {
-            kind: self,
+            kind,
             state: State::default(),
         }
     }
