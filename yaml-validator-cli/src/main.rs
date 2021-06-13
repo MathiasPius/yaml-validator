@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::fs::read;
+use std::path::Path;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use yaml_validator::{
@@ -36,7 +37,7 @@ struct Opt {
     files: Vec<PathBuf>,
 }
 
-fn read_file(filename: &PathBuf) -> Result<String, Error> {
+fn read_file(filename: &Path) -> Result<String, Error> {
     let contents = read(filename).map_err(|e| {
         Error::FileError(format!(
             "could not read file {}: {}\n",

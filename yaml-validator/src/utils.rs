@@ -140,13 +140,13 @@ impl YamlUtils for Yaml {
     where
         F: FnOnce(&'schema Yaml) -> Option<T>,
     {
-        Ok(cast(self).ok_or_else(|| {
+        cast(self).ok_or_else(|| {
             SchemaErrorKind::WrongType {
                 expected,
                 actual: self.type_to_str(),
             }
             .into()
-        })?)
+        })
     }
 
     fn lookup<'schema, F, T>(
