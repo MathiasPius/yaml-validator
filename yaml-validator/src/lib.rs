@@ -15,8 +15,8 @@ use types::*;
 use error::{add_path_name, condense_errors, optional};
 pub use error::{SchemaError, SchemaErrorKind};
 
-use utils::YamlUtils;
 use crate::types::bool::SchemaBool;
+use utils::YamlUtils;
 
 /// Validation trait implemented by all types, as well as the [Schema](crate::Schema) type
 pub trait Validate<'yaml, 'schema: 'yaml> {

@@ -5,16 +5,13 @@ use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
 #[derive(Debug, Default)]
-pub(crate) struct SchemaBool {
-
-}
+pub(crate) struct SchemaBool {}
 
 impl<'schema> TryFrom<&'schema Yaml> for SchemaBool {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.strict_contents(&[], &["type"])?;
-        Ok(SchemaBool {
-        })
+        Ok(SchemaBool {})
     }
 }
 
@@ -26,7 +23,6 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaBool {
     ) -> Result<(), SchemaError<'yaml>> {
         let _value = yaml.as_type("bool", Yaml::as_bool)?;
 
-
         Ok(())
     }
 }
@@ -35,9 +31,9 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaBool {
 mod tests {
     use super::*;
     use crate::error::SchemaErrorKind;
+    use crate::types::SchemaInteger;
     use crate::utils::load_simple;
     use crate::SchemaString;
-    use crate::types::SchemaInteger;
 
     #[test]
     fn from_yaml() {
@@ -85,7 +81,6 @@ mod tests {
             .into()
         );
     }
-
 
     #[test]
     fn validate_string() {
@@ -150,7 +145,4 @@ mod tests {
             .into()
         );
     }
-
-
-
 }
