@@ -140,7 +140,7 @@ mod tests {
                 expected: "hash",
                 actual: "string"
             }
-            .with_path(path!["hello", "items"]),
+            .with_path(breadcrumb!["hello", "items"]),
         );
     }
 
@@ -164,11 +164,11 @@ mod tests {
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown1"
                     }
-                    .with_path(path!["error 1", "items"]),
+                    .with_path(breadcrumb!["error 1", "items"]),
                     SchemaErrorKind::UnknownType {
                         unknown_type: "unknown2"
                     }
-                    .with_path(path!["error 2", "items"]),
+                    .with_path(breadcrumb!["error 2", "items"]),
                 ]
             }
             .into()

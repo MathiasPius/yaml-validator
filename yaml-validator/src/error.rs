@@ -2,74 +2,7 @@
 
 use thiserror::Error;
 
-#[cfg(feature = "smallvec")]
-pub type PathVec<'a> = smallvec::SmallVec<[PathSegment<'a>; 8]>;
-#[cfg(not(feature = "smallvec"))]
-pub type PathVec<'a> = Vec<PathSegment<'a>>;
-
-#[cfg(test)]
-#[cfg(feature = "smallvec")]
-macro_rules! path{
-    ( $( $x:expr ),* ) => {
-        smallvec::smallvec![
-            $(crate::error::PathSegment::from($x),)*
-        ]
-    }
-}
-
-#[cfg(test)]
-#[cfg(not(feature = "smallvec"))]
-macro_rules! path{
-    ( $( $x:expr ),* ) => {
-        vec![
-            $(crate::error::PathSegment::from($x),)*
-        ]
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum PathSegment<'a> {
-    Name(&'a str),
-    Index(usize),
-}
-
-impl<'a> From<&'a str> for PathSegment<'a> {
-    fn from(name: &'a str) -> Self {
-        PathSegment::Name(name)
-    }
-}
-
-impl<'a> From<usize> for PathSegment<'a> {
-    fn from(index: usize) -> Self {
-        PathSegment::Index(index)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct State<'a> {
-    path: PathVec<'a>,
-}
-
-impl<'a> std::fmt::Display for State<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for segment in self.path.iter().rev() {
-            match segment {
-                PathSegment::Name(name) => write!(f, ".{}", name)?,
-                PathSegment::Index(index) => write!(f, "[{}]", index)?,
-            };
-        }
-
-        Ok(())
-    }
-}
-
-impl<'a> Default for State<'a> {
-    fn default() -> Self {
-        State {
-            path: PathVec::new(),
-        }
-    }
-}
+use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SchemaErrorKind<'a> {
@@ -96,9 +29,9 @@ pub enum SchemaErrorKind<'a> {
 
 /// A wrapper type around SchemaErrorKind containing path information about where the error occurred.
 #[derive(Debug, PartialEq, Eq)]
-pub struct SchemaError<'a> {
-    pub kind: SchemaErrorKind<'a>,
-    pub state: State<'a>,
+pub struct SchemaError<'schema> {
+    pub kind: SchemaErrorKind<'schema>,
+    pub state: Breadcrumb<'schema>,
 }
 
 impl<'a> SchemaError<'a> {
@@ -123,36 +56,36 @@ impl<'a> std::fmt::Display for SchemaError<'a> {
 }
 
 impl<'a> SchemaErrorKind<'a> {
-    pub fn with_path(self, path: PathVec<'a>) -> SchemaError<'a> {
+    pub fn with_path(self, path: BreadcrumbSegmentVec<'a>) -> SchemaError<'a> {
         SchemaError {
             kind: self,
-            state: State { path },
+            state: Breadcrumb::new(path),
         }
     }
 
     pub fn with_path_name(self, path: &'a str) -> SchemaError<'a> {
         let mut err: SchemaError = self.into();
-        err.state.path.push(PathSegment::Name(path));
+        err.state.push(BreadcrumbSegment::Name(path));
         err
     }
 
     pub fn with_path_index(self, index: usize) -> SchemaError<'a> {
         let mut err: SchemaError = self.into();
-        err.state.path.push(PathSegment::Index(index));
+        err.state.push(BreadcrumbSegment::Index(index));
         err
     }
 }
 
 pub fn add_path_name<'a>(path: &'a str) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
     move |mut err: SchemaError<'a>| -> SchemaError<'a> {
-        err.state.path.push(PathSegment::Name(path));
+        err.state.push(BreadcrumbSegment::Name(path));
         err
     }
 }
 
 pub fn add_path_index<'a>(index: usize) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
     move |mut err: SchemaError<'a>| -> SchemaError<'a> {
-        err.state.path.push(PathSegment::Index(index));
+        err.state.push(BreadcrumbSegment::Index(index));
         err
     }
 }
@@ -170,7 +103,7 @@ impl<'a> From<SchemaErrorKind<'a>> for SchemaError<'a> {
     fn from(kind: SchemaErrorKind<'a>) -> SchemaError<'a> {
         SchemaError {
             kind,
-            state: State::default(),
+            state: Breadcrumb::default(),
         }
     }
 }

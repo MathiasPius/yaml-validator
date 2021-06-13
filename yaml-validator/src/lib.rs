@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 pub use yaml_rust;
 use yaml_rust::Yaml;
 
+mod breadcrumb;
 mod error;
 mod modifiers;
 mod types;
