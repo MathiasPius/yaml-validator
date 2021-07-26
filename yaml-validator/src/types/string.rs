@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, optional, SchemaError, SchemaErrorKind};
+use crate::errors::{schema::optional, SchemaError, SchemaErrorKind};
 use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, Validate};
 use std::convert::TryFrom;
@@ -28,14 +28,14 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
         let min_length = yaml
             .lookup("minLength", "integer", Yaml::as_i64)
             .and_then(try_into_usize)
-            .map_err(add_path_name("minLength"))
+            .map_err(SchemaError::add_path_name("minLength"))
             .map(Option::from)
             .or_else(optional(None))?;
 
         let max_length = yaml
             .lookup("maxLength", "integer", Yaml::as_i64)
             .and_then(try_into_usize)
-            .map_err(add_path_name("maxLength"))
+            .map_err(SchemaError::add_path_name("maxLength"))
             .map(Option::from)
             .or_else(optional(None))?;
 
@@ -124,7 +124,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::SchemaErrorKind;
+    use crate::errors::SchemaErrorKind;
     use crate::utils::load_simple;
     use crate::SchemaString;
 

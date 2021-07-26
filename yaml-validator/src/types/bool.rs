@@ -1,4 +1,4 @@
-use crate::error::SchemaError;
+use crate::errors::SchemaError;
 use crate::utils::YamlUtils;
 use crate::{Context, Validate};
 use std::convert::TryFrom;
@@ -30,7 +30,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaBool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::SchemaErrorKind;
+    use crate::errors::SchemaErrorKind;
     use crate::types::SchemaInteger;
     use crate::utils::load_simple;
     use crate::SchemaString;

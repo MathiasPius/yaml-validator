@@ -1,4 +1,4 @@
-use crate::error::{add_path_index, add_path_name, optional, SchemaError, SchemaErrorKind};
+use crate::errors::{schema::optional, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -20,11 +20,12 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaHash<'schema> {
         yaml.lookup("items", "yaml", Option::from)
             .map(|inner| {
                 yaml.lookup("items", "hash", Yaml::as_hash)
-                    .map_err(add_path_name("items"))?;
+                    .map_err(SchemaError::add_path_name("items"))?;
 
                 Ok(SchemaHash {
                     items: Some(Box::new(
-                        PropertyType::try_from(inner).map_err(add_path_name("items"))?,
+                        PropertyType::try_from(inner)
+                            .map_err(SchemaError::add_path_name("items"))?,
                     )),
                 })
             })
@@ -44,7 +45,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaHash<'schema> {
             let mut errors: Vec<SchemaError<'yaml>> = items
                 .values()
                 .enumerate()
-                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)))
+                .map(|(i, item)| {
+                    schema
+                        .validate(ctx, item)
+                        .map_err(SchemaError::add_path_index(i))
+                })
                 .filter(Result::is_err)
                 .map(Result::unwrap_err)
                 .collect();

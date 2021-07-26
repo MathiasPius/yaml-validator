@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, condense_errors, SchemaError, SchemaErrorKind};
+use crate::errors::{schema::condense_errors, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -17,7 +17,9 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaAnyOf<'schema> {
         let (items, errs): (Vec<_>, Vec<_>) = yaml
             .lookup("anyOf", "array", Yaml::as_vec)?
             .iter()
-            .map(|property| PropertyType::try_from(property).map_err(add_path_name("items")))
+            .map(|property| {
+                PropertyType::try_from(property).map_err(SchemaError::add_path_name("items"))
+            })
             .partition(Result::is_ok);
 
         condense_errors(&mut errs.into_iter())?;

@@ -1,6 +1,4 @@
-use crate::error::{
-    add_path_index, add_path_name, condense_errors, optional, SchemaError, SchemaErrorKind,
-};
+use crate::errors::{schema::condense_errors, schema::optional, SchemaError, SchemaErrorKind};
 use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::HashSet;
@@ -38,20 +36,20 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
         let min_items = yaml
             .lookup("minItems", "integer", Yaml::as_i64)
             .and_then(try_into_usize)
-            .map_err(add_path_name("minItems"))
+            .map_err(SchemaError::add_path_name("minItems"))
             .map(Option::from)
             .or_else(optional(None))?;
 
         let max_items = yaml
             .lookup("maxItems", "integer", Yaml::as_i64)
             .and_then(try_into_usize)
-            .map_err(add_path_name("maxItems"))
+            .map_err(SchemaError::add_path_name("maxItems"))
             .map(Option::from)
             .or_else(optional(None))?;
 
         let unique_items = yaml
             .lookup("uniqueItems", "bool", Yaml::as_bool)
-            .map_err(add_path_name("uniqueItems"))
+            .map_err(SchemaError::add_path_name("uniqueItems"))
             .map(Option::from)
             .or_else(optional(None))?
             .unwrap_or(false);
@@ -67,35 +65,35 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let items = yaml
             .lookup("items", "yaml", Option::from)
-            .map_err(add_path_name("items"))
+            .map_err(SchemaError::add_path_name("items"))
             .map(Option::from)
             .or_else(optional(None))?
             .map(PropertyType::try_from)
             .transpose()
-            .map_err(add_path_name("items"))?
+            .map_err(SchemaError::add_path_name("items"))?
             .map(Box::new);
 
         let contains = yaml
             .lookup("contains", "yaml", Option::from)
-            .map_err(add_path_name("contains"))
+            .map_err(SchemaError::add_path_name("contains"))
             .map(Option::from)
             .or_else(optional(None))?
             .map(PropertyType::try_from)
             .transpose()
-            .map_err(add_path_name("contains"))?
+            .map_err(SchemaError::add_path_name("contains"))?
             .map(Box::new);
 
         let min_contains = yaml
             .lookup("minContains", "integer", Yaml::as_i64)
             .and_then(try_into_usize)
-            .map_err(add_path_name("minContains"))
+            .map_err(SchemaError::add_path_name("minContains"))
             .map(Option::from)
             .or_else(optional(None))?;
 
         let max_contains = yaml
             .lookup("maxContains", "integer", Yaml::as_i64)
             .and_then(try_into_usize)
-            .map_err(add_path_name("maxContains"))
+            .map_err(SchemaError::add_path_name("maxContains"))
             .map(Option::from)
             .or_else(optional(None))?;
 
@@ -178,7 +176,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
             let contained = items
                 .iter()
                 .enumerate()
-                .map(|(i, item)| contains.validate(ctx, item).map_err(add_path_index(i)))
+                .map(|(i, item)| {
+                    contains
+                        .validate(ctx, item)
+                        .map_err(SchemaError::add_path_index(i))
+                })
                 .filter(Result::is_ok)
                 .count();
 
@@ -208,10 +210,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
         };
 
         if let Some(schema) = &self.items {
-            let mut errors = items
-                .iter()
-                .enumerate()
-                .map(|(i, item)| schema.validate(ctx, item).map_err(add_path_index(i)));
+            let mut errors = items.iter().enumerate().map(|(i, item)| {
+                schema
+                    .validate(ctx, item)
+                    .map_err(SchemaError::add_path_index(i))
+            });
 
             condense_errors(&mut errors)?;
         }

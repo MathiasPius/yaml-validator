@@ -1,4 +1,4 @@
-use crate::error::{SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::{Context, Validate};
 use yaml_rust::Yaml;
 

@@ -47,6 +47,20 @@ impl<'a> SchemaError<'a> {
 
         Ok(())
     }
+
+    pub fn add_path_name(path: &'a str) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+        move |mut err: SchemaError<'a>| -> SchemaError<'a> {
+            err.state.push(BreadcrumbSegment::Name(path));
+            err
+        }
+    }
+
+    pub fn add_path_index(index: usize) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
+        move |mut err: SchemaError<'a>| -> SchemaError<'a> {
+            err.state.push(BreadcrumbSegment::Index(index));
+            err
+        }
+    }
 }
 
 impl<'a> std::fmt::Display for SchemaError<'a> {
@@ -71,20 +85,6 @@ impl<'a> SchemaErrorKind<'a> {
 
     pub fn with_path_index(self, index: usize) -> SchemaError<'a> {
         let mut err: SchemaError = self.into();
-        err.state.push(BreadcrumbSegment::Index(index));
-        err
-    }
-}
-
-pub fn add_path_name<'a>(path: &'a str) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
-    move |mut err: SchemaError<'a>| -> SchemaError<'a> {
-        err.state.push(BreadcrumbSegment::Name(path));
-        err
-    }
-}
-
-pub fn add_path_index<'a>(index: usize) -> impl Fn(SchemaError<'a>) -> SchemaError<'a> {
-    move |mut err: SchemaError<'a>| -> SchemaError<'a> {
         err.state.push(BreadcrumbSegment::Index(index));
         err
     }
