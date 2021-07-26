@@ -1,4 +1,4 @@
-use crate::error::{SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use std::convert::TryInto;
 use std::fmt::Display;
 use std::ops::{Index, Sub};

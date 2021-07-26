@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -19,9 +19,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaNot<'schema> {
         // to be passed into PropertyType::try_from
         yaml.lookup("not", "yaml", Option::from).map(|inner| {
             yaml.lookup("not", "hash", Yaml::as_hash)
-                .map_err(add_path_name("not"))?;
+                .map_err(SchemaError::add_path_name("not"))?;
             Ok(SchemaNot {
-                item: Box::new(PropertyType::try_from(inner).map_err(add_path_name("not"))?),
+                item: Box::new(
+                    PropertyType::try_from(inner).map_err(SchemaError::add_path_name("not"))?,
+                ),
             })
         })?
     }

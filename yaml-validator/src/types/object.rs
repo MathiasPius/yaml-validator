@@ -1,4 +1,4 @@
-use crate::error::{add_path_name, condense_errors, optional, SchemaError};
+use crate::errors::{schema::condense_errors, schema::optional, SchemaError};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::collections::BTreeMap;
@@ -23,8 +23,8 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             .map(|property| {
                 let name = property.0.as_type("string", Yaml::as_str)?;
                 PropertyType::try_from(property.1)
-                    .map_err(add_path_name(name))
-                    .map_err(add_path_name("items"))
+                    .map_err(SchemaError::add_path_name(name))
+                    .map_err(SchemaError::add_path_name("items"))
                     .map(|prop| (name, prop))
             })
             .partition(Result::is_ok);
@@ -33,7 +33,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 
         let required: Option<(Vec<_>, Vec<_>)> = yaml
             .lookup("required", "array", Yaml::as_vec)
-            .map_err(add_path_name("required"))
+            .map_err(SchemaError::add_path_name("required"))
             .map(Option::from)
             .or_else(optional(None))?
             .map(|fields| {
@@ -75,13 +75,13 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
             let item = yaml
                 .lookup(name, "yaml", Option::from)
                 .map(Option::Some)
-                .map_err(add_path_name(name))
+                .map_err(SchemaError::add_path_name(name))
                 .or_else(optional(None))?;
 
             if let Some(item) = item {
                 schema_item
                     .validate(ctx, item)
-                    .map_err(add_path_name(name))?;
+                    .map_err(SchemaError::add_path_name(name))?;
             }
 
             Ok(())

@@ -6,15 +6,15 @@ pub use yaml_rust;
 use yaml_rust::Yaml;
 
 mod breadcrumb;
-mod error;
+mod errors;
 mod modifiers;
 mod types;
 mod utils;
 use modifiers::*;
 use types::*;
 
-use error::{add_path_name, condense_errors, optional};
-pub use error::{SchemaError, SchemaErrorKind};
+use errors::schema::{condense_errors, optional};
+pub use errors::schema::{SchemaError, SchemaErrorKind};
 
 use crate::types::bool::SchemaBool;
 use utils::YamlUtils;
@@ -207,7 +207,7 @@ impl<'schema> TryFrom<&'schema Yaml> for Schema<'schema> {
 
         let uri = yaml.lookup("uri", "string", Yaml::as_str)?;
         let schema = PropertyType::try_from(yaml.lookup("schema", "yaml", Option::from)?)
-            .map_err(add_path_name(uri))?;
+            .map_err(SchemaError::add_path_name(uri))?;
 
         Ok(Schema { uri, schema })
     }
