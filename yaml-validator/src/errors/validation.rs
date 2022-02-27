@@ -9,10 +9,20 @@ pub enum ValidationErrorKind<'a> {
         expected: &'static str,
         actual: &'a str,
     },
-    #[error("multiple validation errors were encountered: {errors:?}")]
+    #[error("malformed field: {error}")]
+    MalformedField { error: String },
+    #[error("special requirements for field not met: {error}")]
+    ValidationError { error: &'a str },
+    #[error("field '{field}' missing")]
+    FieldMissing { field: &'a str },
+    #[error("field '{field}' is not specified in the schema")]
+    ExtraField { field: &'a str },
+    #[error("unknown type specified: {unknown_type}")]
+    UnknownType { unknown_type: &'a str },
+    #[error("multiple errors were encountered: {errors:?}")]
     Multiple { errors: Vec<ValidationError<'a>> },
-    #[error("unknown validation error")]
-    Unknown,
+    #[error("schema '{uri}' references was not found")]
+    UnknownSchema { uri: &'a str },
 }
 
 impl<'a> ValidationErrorKind<'a> {
