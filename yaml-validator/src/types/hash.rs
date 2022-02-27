@@ -1,6 +1,6 @@
-use crate::errors::{schema::schema_optional, SchemaError};
+use crate::errors::SchemaError;
 use crate::errors::{ValidationError, ValidationErrorKind};
-use crate::utils::YamlUtils;
+use crate::utils::{OptionalLookup, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -32,7 +32,8 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaHash<'schema> {
                     )),
                 })
             })
-            .or_else(schema_optional(Ok(SchemaHash { items: None })))?
+            .into_optional()?
+            .unwrap_or(Ok(SchemaHash { items: None }))
     }
 }
 

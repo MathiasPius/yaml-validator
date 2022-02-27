@@ -210,6 +210,46 @@ impl YamlUtils for Yaml {
     }
 }
 
+pub trait OptionalLookup<'a, T, E> {
+    fn into_optional(self) -> Result<Option<T>, E>;
+}
+
+impl<'a, T> OptionalLookup<'a, T, GenericError<'a>> for Result<T, GenericError<'a>> {
+    fn into_optional(self) -> Result<Option<T>, GenericError<'a>> {
+        match self {
+            Ok(o) => Ok(Some(o)),
+            Err(e) => match e {
+                GenericError::FieldMissing { field: _ } => Ok(None),
+                _ => Err(e),
+            },
+        }
+    }
+}
+
+impl<'a, T> OptionalLookup<'a, T, SchemaErrorKind<'a>> for Result<T, SchemaErrorKind<'a>> {
+    fn into_optional(self) -> Result<Option<T>, SchemaErrorKind<'a>> {
+        match self {
+            Ok(o) => Ok(Some(o)),
+            Err(e) => match e {
+                SchemaErrorKind::FieldMissing { field: _ } => Ok(None),
+                _ => Err(e),
+            },
+        }
+    }
+}
+
+impl<'a, T> OptionalLookup<'a, T, SchemaError<'a>> for Result<T, SchemaError<'a>> {
+    fn into_optional(self) -> Result<Option<T>, SchemaError<'a>> {
+        match self {
+            Ok(o) => Ok(Some(o)),
+            Err(e) => match e.kind {
+                SchemaErrorKind::FieldMissing { field: _ } => Ok(None),
+                _ => Err(e),
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Limit;

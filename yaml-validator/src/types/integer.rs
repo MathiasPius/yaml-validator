@@ -1,6 +1,6 @@
-use crate::errors::{schema::schema_optional, SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::errors::{ValidationError, ValidationErrorKind};
-use crate::utils::{Limit, YamlUtils};
+use crate::utils::{Limit, OptionalLookup, YamlUtils};
 use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -34,27 +34,23 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
             .lookup("minimum", "integer", Yaml::as_i64)
             .map_err(SchemaError::from)
             .map(Limit::Inclusive)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()?
             .or(yaml
                 .lookup("exclusiveMinimum", "integer", Yaml::as_i64)
                 .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
-                .map(Option::from)
-                .or_else(schema_optional(None))?);
+                .into_optional()?);
 
         let maximum = yaml
             .lookup("maximum", "integer", Yaml::as_i64)
             .map_err(SchemaError::from)
             .map(Limit::Inclusive)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()?
             .or(yaml
                 .lookup("exclusiveMaximum", "integer", Yaml::as_i64)
                 .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
-                .map(Option::from)
-                .or_else(schema_optional(None))?);
+                .into_optional()?);
 
         if let (Some(lower), Some(upper)) = (&minimum, &maximum) {
             if !lower.has_span(upper) {
@@ -78,8 +74,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
                     Ok(number)
                 }
             })
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         Ok(SchemaInteger {
             minimum,

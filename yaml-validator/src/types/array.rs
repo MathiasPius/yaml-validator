@@ -1,7 +1,7 @@
 use crate::errors::validation::condense_validation_errors;
-use crate::errors::{schema::schema_optional, SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::errors::{ValidationError, ValidationErrorKind};
-use crate::utils::{try_into_usize, YamlUtils};
+use crate::utils::{try_into_usize, OptionalLookup, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -40,23 +40,20 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minItems"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         let max_items = yaml
             .lookup("maxItems", "integer", Yaml::as_i64)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxItems"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         let unique_items = yaml
             .lookup("uniqueItems", "bool", Yaml::as_bool)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("uniqueItems"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()?
             .unwrap_or(false);
 
         if let (Some(min_items), Some(max_items)) = (min_items, max_items) {
@@ -72,8 +69,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .lookup("items", "yaml", Option::from)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("items"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()?
             .map(PropertyType::try_from)
             .transpose()
             .map_err(SchemaError::add_path_name("items"))?
@@ -83,8 +79,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .lookup("contains", "yaml", Option::from)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("contains"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()?
             .map(PropertyType::try_from)
             .transpose()
             .map_err(SchemaError::add_path_name("contains"))?
@@ -95,16 +90,14 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minContains"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         let max_contains = yaml
             .lookup("maxContains", "integer", Yaml::as_i64)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxContains"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         // This does not seem like the nicest way to do this...
         match (&contains, &min_contains, &max_contains) {

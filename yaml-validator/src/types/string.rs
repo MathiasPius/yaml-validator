@@ -1,6 +1,6 @@
-use crate::errors::{schema::schema_optional, SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::errors::{ValidationError, ValidationErrorKind};
-use crate::utils::{try_into_usize, YamlUtils};
+use crate::utils::{try_into_usize, OptionalLookup, YamlUtils};
 use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -31,16 +31,14 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minLength"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         let max_length = yaml
             .lookup("maxLength", "integer", Yaml::as_i64)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxLength"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?;
+            .into_optional()?;
 
         if let (Some(min_length), Some(max_length)) = (min_length, max_length) {
             if min_length > max_length {
@@ -56,8 +54,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
             let pattern = yaml
                 .lookup("pattern", "string", Yaml::as_str)
                 .map_err(SchemaError::from)
-                .map(Option::from)
-                .or_else(schema_optional(None))?
+                .into_optional()?
                 .map(|inner| {
                     regex::Regex::new(inner).map_err(|e| {
                         SchemaErrorKind::MalformedField {
