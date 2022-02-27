@@ -33,12 +33,10 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
                 "minContains",
                 "maxContains",
             ],
-        )
-        .map_err(SchemaErrorKind::from)?;
+        )?;
 
         let min_items = yaml
             .lookup("minItems", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minItems"))
@@ -47,7 +45,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let max_items = yaml
             .lookup("maxItems", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxItems"))
@@ -56,7 +53,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let unique_items = yaml
             .lookup("uniqueItems", "bool", Yaml::as_bool)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("uniqueItems"))
             .map(Option::from)
@@ -74,7 +70,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let items = yaml
             .lookup("items", "yaml", Option::from)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("items"))
             .map(Option::from)
@@ -86,7 +81,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let contains = yaml
             .lookup("contains", "yaml", Option::from)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("contains"))
             .map(Option::from)
@@ -98,7 +92,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let min_contains = yaml
             .lookup("minContains", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minContains"))
@@ -107,7 +100,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let max_contains = yaml
             .lookup("maxContains", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxContains"))
@@ -155,9 +147,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
     ) -> Result<(), ValidationError<'yaml>> {
-        let items = yaml
-            .as_type("array", Yaml::as_vec)
-            .map_err(ValidationErrorKind::from)?;
+        let items = yaml.as_type("array", Yaml::as_vec)?;
 
         if let Some(min_items) = &self.min_items {
             if items.len() < *min_items {

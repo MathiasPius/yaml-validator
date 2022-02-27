@@ -1,6 +1,6 @@
-use crate::errors::{SchemaError, ValidationError, ValidationErrorKind};
+use crate::errors::{SchemaError, ValidationError};
 use crate::utils::YamlUtils;
-use crate::{Context, SchemaErrorKind, Validate};
+use crate::{Context, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
@@ -10,8 +10,7 @@ pub(crate) struct SchemaBool {}
 impl<'schema> TryFrom<&'schema Yaml> for SchemaBool {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["type"])
-            .map_err(SchemaErrorKind::from)?;
+        yaml.strict_contents(&[], &["type"])?;
         Ok(SchemaBool {})
     }
 }
@@ -22,9 +21,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaBool {
         _: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
     ) -> Result<(), ValidationError<'yaml>> {
-        let _value = yaml
-            .as_type("bool", Yaml::as_bool)
-            .map_err(ValidationErrorKind::from)?;
+        let _value = yaml.as_type("bool", Yaml::as_bool)?;
 
         Ok(())
     }

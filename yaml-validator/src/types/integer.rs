@@ -25,22 +25,19 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
                 "exclusiveMaximum",
                 "multipleOf",
             ],
-        )
-        .map_err(SchemaErrorKind::from)?;
+        )?;
 
         yaml.check_exclusive_fields(&["minimum", "exclusiveMinimum"])?;
         yaml.check_exclusive_fields(&["maximum", "exclusiveMaximum"])?;
 
         let minimum = yaml
             .lookup("minimum", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Limit::Inclusive)
             .map(Option::from)
             .or_else(schema_optional(None))?
             .or(yaml
                 .lookup("exclusiveMinimum", "integer", Yaml::as_i64)
-                .map_err(SchemaErrorKind::from)
                 .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
                 .map(Option::from)
@@ -48,14 +45,12 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
 
         let maximum = yaml
             .lookup("maximum", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Limit::Inclusive)
             .map(Option::from)
             .or_else(schema_optional(None))?
             .or(yaml
                 .lookup("exclusiveMaximum", "integer", Yaml::as_i64)
-                .map_err(SchemaErrorKind::from)
                 .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
                 .map(Option::from)
@@ -72,7 +67,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaInteger {
 
         let multiple_of = yaml
             .lookup("multipleOf", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(|number| {
                 if number <= 0 {
@@ -101,9 +95,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaInteger {
         _: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
     ) -> Result<(), ValidationError<'yaml>> {
-        let value = yaml
-            .as_type("integer", Yaml::as_i64)
-            .map_err(ValidationErrorKind::from)?;
+        let value = yaml.as_type("integer", Yaml::as_i64)?;
 
         if let Some(minimum) = &self.minimum {
             if !minimum.is_greater(&value) {

@@ -1,8 +1,8 @@
 use crate::errors::validation::{condense_validation_errors, validation_optional};
+use crate::errors::ValidationError;
 use crate::errors::{schema::condense_schema_errors, schema::schema_optional, SchemaError};
-use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::YamlUtils;
-use crate::{Context, PropertyType, SchemaErrorKind, Validate};
+use crate::{Context, PropertyType, Validate};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -16,12 +16,9 @@ pub(crate) struct SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["type", "required"])
-            .map_err(SchemaErrorKind::from)?;
+        yaml.strict_contents(&["items"], &["type", "required"])?;
 
-        let items = yaml
-            .lookup("items", "hash", Yaml::as_hash)
-            .map_err(SchemaErrorKind::from)?;
+        let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
             .iter()
@@ -38,7 +35,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 
         let required: Option<(Vec<_>, Vec<_>)> = yaml
             .lookup("required", "array", Yaml::as_vec)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("required"))
             .map(Option::from)
@@ -49,7 +45,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
                     .map(|field| -> Result<&'schema str, Self::Error> {
                         field
                             .as_type("string", Yaml::as_str)
-                            .map_err(SchemaErrorKind::from)
                             .map_err(SchemaError::from)
                     })
                     .partition(Result::is_ok)
@@ -75,19 +70,16 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
     ) -> Result<(), ValidationError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash)
-            .map_err(ValidationErrorKind::from)?;
+        yaml.as_type("hash", Yaml::as_hash)?;
 
         let items: Vec<&'schema str> = self.items.keys().copied().collect();
         let required = self.required.as_ref().cloned().unwrap_or_default();
-        yaml.strict_contents(&required, &items)
-            .map_err(ValidationErrorKind::from)?;
+        yaml.strict_contents(&required, &items)?;
 
         let mut errors = self.items.iter().map(|(name, schema_item)| {
             let item = yaml
                 .lookup(name, "yaml", Option::from)
                 .map(Option::Some)
-                .map_err(ValidationErrorKind::from)
                 .map_err(ValidationError::from)
                 .map_err(ValidationError::add_path_name(name))
                 .or_else(validation_optional(None))?;
@@ -109,6 +101,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::ValidationErrorKind;
     use crate::utils::load_simple;
     use crate::{SchemaErrorKind, SchemaObject};
 

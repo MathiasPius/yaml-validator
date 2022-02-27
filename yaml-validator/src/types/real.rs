@@ -32,14 +32,12 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
 
         let minimum = yaml
             .lookup("minimum", "real", Yaml::as_f64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Limit::Inclusive)
             .map(Option::from)
             .or_else(schema_optional(None))?
             .or(yaml
                 .lookup("exclusiveMinimum", "real", Yaml::as_f64)
-                .map_err(SchemaErrorKind::from)
                 .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
                 .map(Option::from)
@@ -47,14 +45,12 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
 
         let maximum = yaml
             .lookup("maximum", "real", Yaml::as_f64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Limit::Inclusive)
             .map(Option::from)
             .or_else(schema_optional(None))?
             .or(yaml
                 .lookup("exclusiveMaximum", "real", Yaml::as_f64)
-                .map_err(SchemaErrorKind::from)
                 .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
                 .map(Option::from)
@@ -62,7 +58,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
 
         let multiple_of = yaml
             .lookup("multipleOf", "real", Yaml::as_f64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(|number| {
                 if number <= 0.0 {

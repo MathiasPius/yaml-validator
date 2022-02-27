@@ -188,9 +188,7 @@ impl YamlUtils for Yaml {
         &'schema self,
         exclusive_keys: &[&'static str],
     ) -> Result<(), SchemaError<'schema>> {
-        let hash = self
-            .as_type("hash", Yaml::as_hash)
-            .map_err(SchemaErrorKind::from)?;
+        let hash = self.as_type("hash", Yaml::as_hash)?;
 
         let conflicts: Vec<&'static str> = exclusive_keys
             .iter()
