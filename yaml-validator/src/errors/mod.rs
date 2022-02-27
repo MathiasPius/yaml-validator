@@ -17,8 +17,6 @@ pub enum GenericError<'a> {
     FieldMissing { field: &'a str },
     #[error("field '{field}' is not specified in the schema")]
     ExtraField { field: &'a str },
-    #[error("malformed field: {error}")]
-    MalformedField { error: String },
     #[error("multiple errors were encountered: {errors:?}")]
     Multiple { errors: Vec<GenericError<'a>> },
 }

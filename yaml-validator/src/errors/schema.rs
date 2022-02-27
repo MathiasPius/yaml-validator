@@ -116,7 +116,6 @@ impl<'a> From<GenericError<'a>> for SchemaErrorKind<'a> {
             }
             GenericError::FieldMissing { field } => SchemaErrorKind::FieldMissing { field },
             GenericError::ExtraField { field } => SchemaErrorKind::ExtraField { field },
-            GenericError::MalformedField { error } => SchemaErrorKind::MalformedField { error },
             GenericError::Multiple { errors } => SchemaErrorKind::Multiple {
                 errors: errors
                     .into_iter()
