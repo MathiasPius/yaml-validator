@@ -13,7 +13,7 @@ mod utils;
 use modifiers::*;
 use types::*;
 
-use errors::schema::{condense_errors, optional};
+use errors::{schema::{condense_errors, optional}, ValidationError};
 pub use errors::schema::{SchemaError, SchemaErrorKind};
 
 use crate::types::bool::SchemaBool;
@@ -25,7 +25,7 @@ pub trait Validate<'yaml, 'schema: 'yaml> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>>;
+    ) -> Result<(), ValidationError<'yaml>>;
 }
 
 /// Contains a number of schemas that may or may not be dependent on each other.
@@ -175,7 +175,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for PropertyType<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         match self {
             PropertyType::Integer(p) => p.validate(ctx, yaml),
             PropertyType::Real(p) => p.validate(ctx, yaml),
@@ -218,7 +218,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for Schema<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         self.schema.validate(ctx, yaml)
     }
 }
