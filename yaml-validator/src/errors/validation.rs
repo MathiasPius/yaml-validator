@@ -11,8 +11,6 @@ pub enum ValidationErrorKind<'a> {
         expected: &'static str,
         actual: &'a str,
     },
-    #[error("malformed field: {error}")]
-    MalformedField { error: String },
     #[error("special requirements for field not met: {error}")]
     ValidationError { error: &'a str },
     #[error("field '{field}' missing")]
@@ -65,7 +63,6 @@ impl<'a> From<GenericError<'a>> for ValidationErrorKind<'a> {
             }
             GenericError::FieldMissing { field } => ValidationErrorKind::FieldMissing { field },
             GenericError::ExtraField { field } => ValidationErrorKind::ExtraField { field },
-            GenericError::MalformedField { error } => ValidationErrorKind::MalformedField { error },
             GenericError::Multiple { errors } => ValidationErrorKind::Multiple {
                 errors: errors
                     .into_iter()
