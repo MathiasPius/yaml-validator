@@ -15,11 +15,9 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaOneOf<'schema> {
     type Error = SchemaError<'schema>;
 
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["oneOf"], &[])
-            .map_err(SchemaErrorKind::from)?;
+        yaml.strict_contents(&["oneOf"], &[])?;
         let (items, errs): (Vec<_>, Vec<_>) = yaml
-            .lookup("oneOf", "array", Yaml::as_vec)
-            .map_err(SchemaErrorKind::from)?
+            .lookup("oneOf", "array", Yaml::as_vec)?
             .iter()
             .map(|property| {
                 PropertyType::try_from(property).map_err(SchemaError::add_path_name("items"))

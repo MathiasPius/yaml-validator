@@ -28,7 +28,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 
         let min_length = yaml
             .lookup("minLength", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minLength"))
@@ -37,7 +36,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 
         let max_length = yaml
             .lookup("maxLength", "integer", Yaml::as_i64)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxLength"))
@@ -57,7 +55,6 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
         {
             let pattern = yaml
                 .lookup("pattern", "string", Yaml::as_str)
-                .map_err(SchemaErrorKind::from)
                 .map_err(SchemaError::from)
                 .map(Option::from)
                 .or_else(schema_optional(None))?

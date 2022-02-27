@@ -116,7 +116,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if let Some(uri) = yaml
             .lookup("$ref", "string", Yaml::as_str)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Option::from)
             .or_else(schema_optional(None))?
@@ -126,7 +125,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("not", "hash", Option::from)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Option::from)
             .or_else(schema_optional(None))?
@@ -137,7 +135,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("oneOf", "hash", Option::from)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Option::from)
             .or_else(schema_optional(None))?
@@ -148,7 +145,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("allOf", "hash", Option::from)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Option::from)
             .or_else(schema_optional(None))?
@@ -159,7 +155,6 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("anyOf", "hash", Option::from)
-            .map_err(SchemaErrorKind::from)
             .map_err(SchemaError::from)
             .map(Option::from)
             .or_else(schema_optional(None))?
