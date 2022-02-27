@@ -1,6 +1,8 @@
-use crate::errors::{schema::condense_errors, schema::optional, SchemaError};
+use crate::errors::validation::{condense_validation_errors, validation_optional};
+use crate::errors::{schema::condense_schema_errors, schema::schema_optional, SchemaError};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::YamlUtils;
-use crate::{Context, PropertyType, Validate};
+use crate::{Context, PropertyType, SchemaErrorKind, Validate};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -14,9 +16,12 @@ pub(crate) struct SchemaObject<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["items"], &["type", "required"])?;
+        yaml.strict_contents(&["items"], &["type", "required"])
+            .map_err(SchemaErrorKind::from)?;
 
-        let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
+        let items = yaml
+            .lookup("items", "hash", Yaml::as_hash)
+            .map_err(SchemaErrorKind::from)?;
 
         let (items, errs): (Vec<_>, Vec<_>) = items
             .iter()
@@ -29,24 +34,29 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             })
             .partition(Result::is_ok);
 
-        condense_errors(&mut errs.into_iter())?;
+        condense_schema_errors(&mut errs.into_iter())?;
 
         let required: Option<(Vec<_>, Vec<_>)> = yaml
             .lookup("required", "array", Yaml::as_vec)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("required"))
             .map(Option::from)
-            .or_else(optional(None))?
+            .or_else(schema_optional(None))?
             .map(|fields| {
                 fields
                     .iter()
                     .map(|field| -> Result<&'schema str, Self::Error> {
-                        field.as_type("string", Yaml::as_str)
+                        field
+                            .as_type("string", Yaml::as_str)
+                            .map_err(SchemaErrorKind::from)
+                            .map_err(SchemaError::from)
                     })
                     .partition(Result::is_ok)
             });
 
         let required = if let Some((required, errs)) = required {
-            condense_errors(&mut errs.into_iter())?;
+            condense_schema_errors(&mut errs.into_iter())?;
             Some(required.into_iter().map(Result::unwrap).collect())
         } else {
             None
@@ -64,30 +74,34 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        yaml.as_type("hash", Yaml::as_hash)?;
+    ) -> Result<(), ValidationError<'yaml>> {
+        yaml.as_type("hash", Yaml::as_hash)
+            .map_err(ValidationErrorKind::from)?;
 
         let items: Vec<&'schema str> = self.items.keys().copied().collect();
         let required = self.required.as_ref().cloned().unwrap_or_default();
-        yaml.strict_contents(&required, &items)?;
+        yaml.strict_contents(&required, &items)
+            .map_err(ValidationErrorKind::from)?;
 
         let mut errors = self.items.iter().map(|(name, schema_item)| {
             let item = yaml
                 .lookup(name, "yaml", Option::from)
                 .map(Option::Some)
-                .map_err(SchemaError::add_path_name(name))
-                .or_else(optional(None))?;
+                .map_err(ValidationErrorKind::from)
+                .map_err(ValidationError::from)
+                .map_err(ValidationError::add_path_name(name))
+                .or_else(validation_optional(None))?;
 
             if let Some(item) = item {
                 schema_item
                     .validate(ctx, item)
-                    .map_err(SchemaError::add_path_name(name))?;
+                    .map_err(ValidationError::add_path_name(name))?;
             }
 
             Ok(())
         });
 
-        condense_errors(&mut errors)?;
+        condense_validation_errors(&mut errors)?;
         Ok(())
     }
 }
@@ -225,7 +239,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "hash",
                 actual: "string"
             }
@@ -241,7 +255,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "hash",
                 actual: "integer"
             }
@@ -265,7 +279,7 @@ mod tests {
                     )
                 )
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "hash",
                 actual: "array"
             }
@@ -326,14 +340,14 @@ mod tests {
                     )
                 )
                 .unwrap_err(),
-            SchemaErrorKind::Multiple {
+            ValidationErrorKind::Multiple {
                 errors: vec![
-                    SchemaErrorKind::WrongType {
+                    ValidationErrorKind::WrongType {
                         expected: "string",
                         actual: "integer"
                     }
                     .with_path_name("hello"),
-                    SchemaErrorKind::WrongType {
+                    ValidationErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
@@ -424,7 +438,7 @@ mod tests {
                     )
                 )
                 .unwrap_err(),
-            SchemaErrorKind::FieldMissing { field: "world" }.into()
+            ValidationErrorKind::FieldMissing { field: "world" }.into()
         );
     }
 }

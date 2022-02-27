@@ -1,6 +1,6 @@
-use crate::errors::{SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, ValidationError, ValidationErrorKind};
 use crate::utils::YamlUtils;
-use crate::{Context, PropertyType, Validate};
+use crate::{Context, PropertyType, SchemaErrorKind, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
@@ -12,20 +12,26 @@ pub(crate) struct SchemaNot<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaNot<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["not"], &[])?;
+        yaml.strict_contents(&["not"], &[])
+            .map_err(SchemaErrorKind::from)?;
 
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
         // to be passed into PropertyType::try_from
-        yaml.lookup("not", "yaml", Option::from).map(|inner| {
-            yaml.lookup("not", "hash", Yaml::as_hash)
-                .map_err(SchemaError::add_path_name("not"))?;
-            Ok(SchemaNot {
-                item: Box::new(
-                    PropertyType::try_from(inner).map_err(SchemaError::add_path_name("not"))?,
-                ),
-            })
-        })?
+        yaml.lookup("not", "yaml", Option::from)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
+            .map(|inner| {
+                yaml.lookup("not", "hash", Yaml::as_hash)
+                    .map_err(SchemaErrorKind::from)
+                    .map_err(SchemaError::from)
+                    .map_err(SchemaError::add_path_name("not"))?;
+                Ok(SchemaNot {
+                    item: Box::new(
+                        PropertyType::try_from(inner).map_err(SchemaError::add_path_name("not"))?,
+                    ),
+                })
+            })?
     }
 }
 
@@ -34,10 +40,10 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaNot<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         match self.item.validate(ctx, yaml) {
             Err(_) => Ok(()),
-            Ok(_) => Err(SchemaErrorKind::ValidationError {
+            Ok(_) => Err(ValidationErrorKind::ValidationError {
                 error: "validation inversion failed because inner result matched",
             }
             .with_path_name("not")),
@@ -48,7 +54,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaNot<'schema> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::load_simple;
+    use crate::{utils::load_simple, SchemaErrorKind};
 
     #[test]
     fn not_from_yaml() {
@@ -107,7 +113,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("20"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "validation inversion failed because inner result matched"
             }
             .with_path_name("not")

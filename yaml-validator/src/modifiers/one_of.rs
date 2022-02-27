@@ -1,4 +1,6 @@
-use crate::errors::{schema::condense_errors, SchemaError, SchemaErrorKind};
+use crate::errors::validation::condense_validation_errors;
+use crate::errors::{schema::condense_schema_errors, SchemaError, SchemaErrorKind};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -13,16 +15,18 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaOneOf<'schema> {
     type Error = SchemaError<'schema>;
 
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["oneOf"], &[])?;
+        yaml.strict_contents(&["oneOf"], &[])
+            .map_err(SchemaErrorKind::from)?;
         let (items, errs): (Vec<_>, Vec<_>) = yaml
-            .lookup("oneOf", "array", Yaml::as_vec)?
+            .lookup("oneOf", "array", Yaml::as_vec)
+            .map_err(SchemaErrorKind::from)?
             .iter()
             .map(|property| {
                 PropertyType::try_from(property).map_err(SchemaError::add_path_name("items"))
             })
             .partition(Result::is_ok);
 
-        condense_errors(&mut errs.into_iter())?;
+        condense_schema_errors(&mut errs.into_iter())?;
 
         if items.is_empty() {
             return Err(SchemaErrorKind::MalformedField {
@@ -42,7 +46,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaOneOf<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         let (valid, errs): (Vec<_>, Vec<_>) = self
             .items
             .iter()
@@ -53,17 +57,17 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaOneOf<'schema> {
         match valid.len() {
             0 => {
                 // If none of the options matched, return the errors from ALL the arms
-                Err(condense_errors(&mut errs.into_iter()).unwrap_err())
+                Err(condense_validation_errors(&mut errs.into_iter()).unwrap_err())
             }
             1 => Ok(()),
             _ => {
                 // Generate an 'error' for each of the arms that validated correctly, using their index. in the oneOf array
-                Err(SchemaErrorKind::Multiple {
+                Err(ValidationErrorKind::Multiple {
                     errors: valid
                         .into_iter()
                         .map(Result::unwrap)
                         .map(|(_, id)| {
-                            SchemaErrorKind::ValidationError {
+                            ValidationErrorKind::ValidationError {
                                 error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch",
                             }
                             .with_path_index(id)
@@ -138,9 +142,9 @@ mod tests {
             .unwrap()
             .validate(&Context::default(), &load_simple("10"))
             .unwrap_err(),
-            SchemaErrorKind::Multiple { errors: vec![
-                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(0),
-                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(1),
+            ValidationErrorKind::Multiple { errors: vec![
+                ValidationErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(0),
+                ValidationErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(1),
             ]}.with_path_name("oneOf")
         )
     }
@@ -188,9 +192,9 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello you!"))
                 .unwrap_err(),
-            SchemaErrorKind::Multiple { errors: vec![
-                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(0),
-                SchemaErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(1),
+                ValidationErrorKind::Multiple { errors: vec![
+                ValidationErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(0),
+                ValidationErrorKind::ValidationError { error: "multiple branches of oneOf validated successfully. oneOf must only contain a single valid branch"}.with_path_index(1),
             ]}.with_path_name("oneOf")
         );
     }

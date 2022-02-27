@@ -1,4 +1,6 @@
-use crate::errors::{schema::condense_errors, SchemaError, SchemaErrorKind};
+use crate::errors::validation::condense_validation_errors;
+use crate::errors::ValidationError;
+use crate::errors::{schema::condense_schema_errors, SchemaError, SchemaErrorKind};
 use crate::utils::YamlUtils;
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
@@ -13,16 +15,18 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaAnyOf<'schema> {
     type Error = SchemaError<'schema>;
 
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&["anyOf"], &[])?;
+        yaml.strict_contents(&["anyOf"], &[])
+            .map_err(SchemaErrorKind::from)?;
         let (items, errs): (Vec<_>, Vec<_>) = yaml
-            .lookup("anyOf", "array", Yaml::as_vec)?
+            .lookup("anyOf", "array", Yaml::as_vec)
+            .map_err(SchemaErrorKind::from)?
             .iter()
             .map(|property| {
                 PropertyType::try_from(property).map_err(SchemaError::add_path_name("items"))
             })
             .partition(Result::is_ok);
 
-        condense_errors(&mut errs.into_iter())?;
+        condense_schema_errors(&mut errs.into_iter())?;
 
         if items.is_empty() {
             return Err(SchemaErrorKind::MalformedField {
@@ -42,7 +46,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaAnyOf<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         let (valid, errs): (Vec<_>, Vec<_>) = self
             .items
             .iter()
@@ -51,7 +55,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaAnyOf<'schema> {
             .partition(Result::is_ok);
 
         if valid.is_empty() {
-            Err(condense_errors(&mut errs.into_iter()).unwrap_err())
+            Err(condense_validation_errors(&mut errs.into_iter()).unwrap_err())
         } else {
             Ok(())
         }

@@ -2,6 +2,8 @@ use thiserror::Error;
 
 use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
 
+use super::YamlError;
+
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ValidationErrorKind<'a> {
     #[error("wrong type, expected {expected} got {actual}")]
@@ -55,6 +57,32 @@ impl<'a> From<ValidationErrorKind<'a>> for ValidationError<'a> {
     }
 }
 
+impl<'a> From<YamlError<'a>> for ValidationErrorKind<'a> {
+    fn from(e: YamlError<'a>) -> Self {
+        match e {
+            YamlError::WrongType { expected, actual } => {
+                ValidationErrorKind::WrongType { expected, actual }
+            }
+            YamlError::FieldMissing { field } => ValidationErrorKind::FieldMissing { field },
+            YamlError::ExtraField { field } => ValidationErrorKind::ExtraField { field },
+            YamlError::MalformedField { error } => ValidationErrorKind::MalformedField { error },
+            YamlError::Multiple { errors } => ValidationErrorKind::Multiple {
+                errors: errors
+                    .into_iter()
+                    .map(ValidationErrorKind::from)
+                    .map(ValidationError::from)
+                    .collect(),
+            },
+        }
+    }
+}
+
+impl<'a> From<YamlError<'a>> for ValidationError<'a> {
+    fn from(e: YamlError<'a>) -> Self {
+        ValidationErrorKind::from(e).into()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ValidationError<'a> {
     pub kind: ValidationErrorKind<'a>,
@@ -93,5 +121,32 @@ impl<'a> ValidationError<'a> {
 impl<'a> std::fmt::Display for ValidationError<'a> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.flatten(fmt, "#".to_string())
+    }
+}
+
+pub fn condense_validation_errors<'a, T>(
+    iter: &mut dyn Iterator<Item = Result<T, ValidationError<'a>>>,
+) -> Result<(), ValidationError<'a>> {
+    let mut errors: Vec<ValidationError> = iter.filter_map(Result::err).collect();
+
+    if !errors.is_empty() {
+        if errors.len() == 1 {
+            Err(errors.pop().unwrap())
+        } else {
+            Err(ValidationErrorKind::Multiple { errors }.into())
+        }
+    } else {
+        Ok(())
+    }
+}
+
+pub fn validation_optional<'a, T>(
+    default: T,
+) -> impl FnOnce(ValidationError<'a>) -> Result<T, ValidationError<'a>> {
+    move |err: ValidationError<'a>| -> Result<T, ValidationError<'a>> {
+        match err.kind {
+            ValidationErrorKind::FieldMissing { .. } => Ok(default),
+            _ => Err(err),
+        }
     }
 }

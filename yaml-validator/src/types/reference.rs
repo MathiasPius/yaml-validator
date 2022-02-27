@@ -33,7 +33,7 @@ mod tests {
             SchemaReference { uri: "test" }
                 .validate(&Context::default(), &load_simple("hello"))
                 .unwrap_err(),
-                ValidationErrorKind::UnknownSchema { uri: "test" }.into()
+            ValidationErrorKind::UnknownSchema { uri: "test" }.into()
         );
     }
 }
