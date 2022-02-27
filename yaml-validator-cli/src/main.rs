@@ -39,7 +39,7 @@ struct Opt {
 
 fn read_file(filename: &Path) -> Result<String, Error> {
     let contents = read(filename).map_err(|e| {
-        Error::FileError(format!(
+        Error::File(format!(
             "could not read file {}: {}\n",
             filename.to_string_lossy(),
             e
@@ -47,7 +47,7 @@ fn read_file(filename: &Path) -> Result<String, Error> {
     })?;
 
     let utf8 = String::from_utf8_lossy(&contents).parse().map_err(|e| {
-        Error::FileError(format!(
+        Error::File(format!(
             "file {} did not contain valid utf8: {}\n",
             filename.to_string_lossy(),
             e
@@ -61,7 +61,7 @@ fn load_yaml(filenames: &[PathBuf]) -> Result<Vec<Yaml>, Vec<Error>> {
     let (yaml, errs): (Vec<_>, Vec<_>) = filenames
         .iter()
         .map(|file| {
-            read_file(&file)
+            read_file(file)
                 .and_then(|source| YamlLoader::load_from_str(&source).map_err(Error::from))
         })
         .partition(Result::is_ok);
@@ -69,7 +69,7 @@ fn load_yaml(filenames: &[PathBuf]) -> Result<Vec<Yaml>, Vec<Error>> {
     if !errs.is_empty() {
         Err(errs.into_iter().map(Result::unwrap_err).collect())
     } else {
-        Ok(yaml.into_iter().map(Result::unwrap).flatten().collect())
+        Ok(yaml.into_iter().flat_map(Result::unwrap).collect())
     }
 }
 
@@ -78,13 +78,13 @@ fn load_yaml(filenames: &[PathBuf]) -> Result<Vec<Yaml>, Vec<Error>> {
 // messages are not very easy to read.
 fn actual_main(opt: Opt) -> Result<(), Error> {
     if opt.schemas.is_empty() {
-        return Err(Error::ValidationError(
+        return Err(Error::Validation(
             "no schemas supplied, see the --schema option for information\n".into(),
         ));
     }
 
     if opt.files.is_empty() {
-        return Err(Error::ValidationError(
+        return Err(Error::Validation(
             "no files to validate were supplied, use --help for more information\n".into(),
         ));
     }
@@ -96,7 +96,7 @@ fn actual_main(opt: Opt) -> Result<(), Error> {
         if let Some(schema) = context.get_schema(&opt.uri) {
             schema
         } else {
-            return Err(Error::ValidationError(format!(
+            return Err(Error::Validation(format!(
                 "schema referenced by uri `{}` not found in context\n",
                 opt.uri
             )));
@@ -110,7 +110,7 @@ fn actual_main(opt: Opt) -> Result<(), Error> {
 
     for (name, doc) in documents {
         schema.validate(&context, &doc).map_err(|err| {
-            Error::ValidationError(format!(
+            Error::Validation(format!(
                 "{name}:\n{err}",
                 name = name.to_string_lossy(),
                 err = err
@@ -178,7 +178,7 @@ mod tests {
                 uri: "phonebook".into(),
             })
             .unwrap_err(),
-            Error::ValidationError(
+            Error::Validation(
                 "../examples/locating-errors/phonebook.yaml:
 #[1].age: wrong type, expected integer got real
 #[2].age: wrong type, expected integer got string
@@ -198,7 +198,7 @@ mod tests {
                 uri: "user-list".into(),
             })
             .unwrap_err(),
-            Error::ValidationError(
+            Error::Validation(
                 "../examples/branching/usernames.yaml:
 #[2].password: special requirements for field not met: supplied value does not match regex pattern for field
 "
@@ -216,7 +216,7 @@ mod tests {
                 uri: "".into(),
             })
             .unwrap_err(),
-            Error::Multiple(vec![Error::FileError(
+            Error::Multiple(vec![Error::File(
                 "could not read file not_found.yaml: No such file or directory (os error 2)\n"
                     .into()
             )])
@@ -232,7 +232,7 @@ mod tests {
                 uri: "person".into(),
             })
             .unwrap_err(),
-            Error::Multiple(vec![Error::FileError(
+            Error::Multiple(vec![Error::File(
                 "could not read file not_found.yaml: No such file or directory (os error 2)\n"
                     .into()
             )])
@@ -248,9 +248,7 @@ mod tests {
                 uri: "not-found".into(),
             })
             .unwrap_err(),
-            Error::ValidationError(
-                "schema referenced by uri `not-found` not found in context\n".into()
-            )
+            Error::Validation("schema referenced by uri `not-found` not found in context\n".into())
         );
     }
 }

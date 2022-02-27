@@ -7,7 +7,7 @@ pub use validation::{ValidationError, ValidationErrorKind};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
-pub enum YamlError<'a> {
+pub enum GenericError<'a> {
     #[error("wrong type, expected {expected} got {actual}")]
     WrongType {
         expected: &'static str,
@@ -20,5 +20,5 @@ pub enum YamlError<'a> {
     #[error("malformed field: {error}")]
     MalformedField { error: String },
     #[error("multiple errors were encountered: {errors:?}")]
-    Multiple { errors: Vec<YamlError<'a>> },
+    Multiple { errors: Vec<GenericError<'a>> },
 }

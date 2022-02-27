@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
 
-use super::YamlError;
+use super::GenericError;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SchemaErrorKind<'a> {
@@ -112,16 +112,16 @@ impl<'a> From<SchemaErrorKind<'a>> for SchemaError<'a> {
     }
 }
 
-impl<'a> From<YamlError<'a>> for SchemaErrorKind<'a> {
-    fn from(e: YamlError<'a>) -> Self {
+impl<'a> From<GenericError<'a>> for SchemaErrorKind<'a> {
+    fn from(e: GenericError<'a>) -> Self {
         match e {
-            YamlError::WrongType { expected, actual } => {
+            GenericError::WrongType { expected, actual } => {
                 SchemaErrorKind::WrongType { expected, actual }
             }
-            YamlError::FieldMissing { field } => SchemaErrorKind::FieldMissing { field },
-            YamlError::ExtraField { field } => SchemaErrorKind::ExtraField { field },
-            YamlError::MalformedField { error } => SchemaErrorKind::MalformedField { error },
-            YamlError::Multiple { errors } => SchemaErrorKind::Multiple {
+            GenericError::FieldMissing { field } => SchemaErrorKind::FieldMissing { field },
+            GenericError::ExtraField { field } => SchemaErrorKind::ExtraField { field },
+            GenericError::MalformedField { error } => SchemaErrorKind::MalformedField { error },
+            GenericError::Multiple { errors } => SchemaErrorKind::Multiple {
                 errors: errors
                     .into_iter()
                     .map(SchemaErrorKind::from)
@@ -132,8 +132,8 @@ impl<'a> From<YamlError<'a>> for SchemaErrorKind<'a> {
     }
 }
 
-impl<'a> From<YamlError<'a>> for SchemaError<'a> {
-    fn from(e: YamlError<'a>) -> Self {
+impl<'a> From<GenericError<'a>> for SchemaError<'a> {
+    fn from(e: GenericError<'a>) -> Self {
         SchemaErrorKind::from(e).into()
     }
 }
