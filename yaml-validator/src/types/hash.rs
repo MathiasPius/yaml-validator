@@ -1,6 +1,7 @@
-use crate::errors::{schema::optional, SchemaError, SchemaErrorKind};
+use crate::errors::{schema::schema_optional, SchemaError};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::YamlUtils;
-use crate::{Context, PropertyType, Validate};
+use crate::{Context, PropertyType, SchemaErrorKind, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
 
@@ -12,14 +13,19 @@ pub(crate) struct SchemaHash<'schema> {
 impl<'schema> TryFrom<&'schema Yaml> for SchemaHash<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
-        yaml.strict_contents(&[], &["items", "type"])?;
+        yaml.strict_contents(&[], &["items", "type"])
+            .map_err(SchemaErrorKind::from)?;
 
         // I'm using Option::from here because I don't actually want to transform
         // the resulting yaml object into a specific type, but need the yaml itself
         // to be passed into PropertyType::try_from
         yaml.lookup("items", "yaml", Option::from)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map(|inner| {
                 yaml.lookup("items", "hash", Yaml::as_hash)
+                    .map_err(SchemaErrorKind::from)
+                    .map_err(SchemaError::from)
                     .map_err(SchemaError::add_path_name("items"))?;
 
                 Ok(SchemaHash {
@@ -29,7 +35,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaHash<'schema> {
                     )),
                 })
             })
-            .or_else(optional(Ok(SchemaHash { items: None })))?
+            .or_else(schema_optional(Ok(SchemaHash { items: None })))?
     }
 }
 
@@ -38,17 +44,19 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaHash<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        let items = yaml.as_type("hash", Yaml::as_hash)?;
+    ) -> Result<(), ValidationError<'yaml>> {
+        let items = yaml
+            .as_type("hash", Yaml::as_hash)
+            .map_err(ValidationErrorKind::from)?;
 
         if let Some(schema) = &self.items {
-            let mut errors: Vec<SchemaError<'yaml>> = items
+            let mut errors: Vec<ValidationError<'yaml>> = items
                 .values()
                 .enumerate()
                 .map(|(i, item)| {
                     schema
                         .validate(ctx, item)
-                        .map_err(SchemaError::add_path_index(i))
+                        .map_err(ValidationError::add_path_index(i))
                 })
                 .filter(Result::is_err)
                 .map(Result::unwrap_err)
@@ -59,7 +67,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaHash<'schema> {
             } else if errors.len() == 1 {
                 Err(errors.pop().unwrap())
             } else {
-                Err(SchemaErrorKind::Multiple { errors }.into())
+                Err(ValidationErrorKind::Multiple { errors }.into())
             };
         }
 
@@ -71,7 +79,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaHash<'schema> {
 mod tests {
     use super::*;
     use crate::utils::load_simple;
-    use crate::SchemaHash;
+    use crate::{SchemaErrorKind, SchemaHash};
 
     #[test]
     fn from_yaml() {
@@ -153,7 +161,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "hash",
                 actual: "string"
             }
@@ -169,7 +177,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "hash",
                 actual: "integer"
             }
@@ -208,7 +216,7 @@ mod tests {
                     &load_simple("hello: 20\nworld: clearly a string")
                 )
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "integer",
                 actual: "string"
             }

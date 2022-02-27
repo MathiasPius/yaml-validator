@@ -4,6 +4,8 @@ use thiserror::Error;
 
 use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
 
+use super::YamlError;
+
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SchemaErrorKind<'a> {
     #[error("wrong type, expected {expected} got {actual}")]
@@ -90,7 +92,9 @@ impl<'a> SchemaErrorKind<'a> {
     }
 }
 
-pub fn optional<'a, T>(default: T) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
+pub fn schema_optional<'a, T>(
+    default: T,
+) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
     move |err: SchemaError<'a>| -> Result<T, SchemaError<'a>> {
         match err.kind {
             SchemaErrorKind::FieldMissing { .. } => Ok(default),
@@ -108,7 +112,33 @@ impl<'a> From<SchemaErrorKind<'a>> for SchemaError<'a> {
     }
 }
 
-pub fn condense_errors<'a, T>(
+impl<'a> From<YamlError<'a>> for SchemaErrorKind<'a> {
+    fn from(e: YamlError<'a>) -> Self {
+        match e {
+            YamlError::WrongType { expected, actual } => {
+                SchemaErrorKind::WrongType { expected, actual }
+            }
+            YamlError::FieldMissing { field } => SchemaErrorKind::FieldMissing { field },
+            YamlError::ExtraField { field } => SchemaErrorKind::ExtraField { field },
+            YamlError::MalformedField { error } => SchemaErrorKind::MalformedField { error },
+            YamlError::Multiple { errors } => SchemaErrorKind::Multiple {
+                errors: errors
+                    .into_iter()
+                    .map(SchemaErrorKind::from)
+                    .map(SchemaError::from)
+                    .collect(),
+            },
+        }
+    }
+}
+
+impl<'a> From<YamlError<'a>> for SchemaError<'a> {
+    fn from(e: YamlError<'a>) -> Self {
+        SchemaErrorKind::from(e).into()
+    }
+}
+
+pub fn condense_schema_errors<'a, T>(
     iter: &mut dyn Iterator<Item = Result<T, SchemaError<'a>>>,
 ) -> Result<(), SchemaError<'a>> {
     let mut errors: Vec<SchemaError> = iter.filter_map(Result::err).collect();

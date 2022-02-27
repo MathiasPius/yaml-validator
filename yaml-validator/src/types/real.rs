@@ -1,4 +1,5 @@
-use crate::errors::{schema::optional, SchemaError, SchemaErrorKind};
+use crate::errors::{schema::schema_optional, SchemaError, SchemaErrorKind};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::{Limit, YamlUtils};
 use crate::{Context, Validate};
 use std::convert::TryFrom;
@@ -31,28 +32,38 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
 
         let minimum = yaml
             .lookup("minimum", "real", Yaml::as_f64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map(Limit::Inclusive)
             .map(Option::from)
-            .or_else(optional(None))?
+            .or_else(schema_optional(None))?
             .or(yaml
                 .lookup("exclusiveMinimum", "real", Yaml::as_f64)
+                .map_err(SchemaErrorKind::from)
+                .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
                 .map(Option::from)
-                .or_else(optional(None))?);
+                .or_else(schema_optional(None))?);
 
         let maximum = yaml
             .lookup("maximum", "real", Yaml::as_f64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map(Limit::Inclusive)
             .map(Option::from)
-            .or_else(optional(None))?
+            .or_else(schema_optional(None))?
             .or(yaml
                 .lookup("exclusiveMaximum", "real", Yaml::as_f64)
+                .map_err(SchemaErrorKind::from)
+                .map_err(SchemaError::from)
                 .map(Limit::Exclusive)
                 .map(Option::from)
-                .or_else(optional(None))?);
+                .or_else(schema_optional(None))?);
 
         let multiple_of = yaml
             .lookup("multipleOf", "real", Yaml::as_f64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(|number| {
                 if number <= 0.0 {
                     Err(SchemaErrorKind::MalformedField {
@@ -64,7 +75,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
                 }
             })
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         if let (Some(lower), Some(upper)) = (&minimum, &maximum) {
             if !lower.has_span(&upper) {
@@ -88,12 +99,12 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReal {
         &self,
         _: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         let value = yaml.as_type("real", Yaml::as_f64)?;
 
         if let Some(minimum) = &self.minimum {
             if !minimum.is_greater(&value) {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "value violates lower limit constraint",
                 }
                 .into());
@@ -102,7 +113,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReal {
 
         if let Some(maximum) = &self.maximum {
             if !maximum.is_lesser(&value) {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "value violates upper limit constraint",
                 }
                 .into());
@@ -111,7 +122,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReal {
 
         if let Some(multiple_of) = &self.multiple_of {
             if value.rem_euclid(*multiple_of) != 0.0 {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "value must be a multiple of the multipleOf field",
                 }
                 .into());
@@ -228,7 +239,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "real",
                 actual: "string"
             }
@@ -244,7 +255,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "real",
                 actual: "integer"
             }
@@ -307,7 +318,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10.0"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "value violates lower limit constraint".into()
             }
             .into()
@@ -343,7 +354,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("5.0"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "value violates lower limit constraint".into()
             }
             .into()
@@ -364,7 +375,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10.0"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "value violates upper limit constraint".into()
             }
             .into()
@@ -400,7 +411,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("20.0"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "value violates upper limit constraint"
             }
             .into()
@@ -421,7 +432,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10.0"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "value must be a multiple of the multipleOf field"
             }
             .into()
@@ -459,7 +470,7 @@ mod tests {
                     )
                 )
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "real",
                 actual: "array"
             }
@@ -475,7 +486,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello: world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "real",
                 actual: "hash"
             }

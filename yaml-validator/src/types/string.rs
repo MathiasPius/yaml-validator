@@ -1,4 +1,5 @@
-use crate::errors::{schema::optional, SchemaError, SchemaErrorKind};
+use crate::errors::{schema::schema_optional, SchemaError, SchemaErrorKind};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, Validate};
 use std::convert::TryFrom;
@@ -27,17 +28,21 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
 
         let min_length = yaml
             .lookup("minLength", "integer", Yaml::as_i64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minLength"))
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         let max_length = yaml
             .lookup("maxLength", "integer", Yaml::as_i64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxLength"))
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         if let (Some(min_length), Some(max_length)) = (min_length, max_length) {
             if min_length > max_length {
@@ -52,8 +57,10 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaString {
         {
             let pattern = yaml
                 .lookup("pattern", "string", Yaml::as_str)
+                .map_err(SchemaErrorKind::from)
+                .map_err(SchemaError::from)
                 .map(Option::from)
-                .or_else(optional(None))?
+                .or_else(schema_optional(None))?
                 .map(|inner| {
                     regex::Regex::new(inner).map_err(|e| {
                         SchemaErrorKind::MalformedField {
@@ -84,12 +91,12 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
         &self,
         _: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         let value = yaml.as_type("string", Yaml::as_str)?;
 
         if let Some(min_length) = self.min_length {
             if value.len() < min_length {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "string length is less than minLength",
                 }
                 .into());
@@ -98,7 +105,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
 
         if let Some(max_length) = self.max_length {
             if value.len() > max_length {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "string length is greater than maxLength",
                 }
                 .into());
@@ -109,7 +116,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaString {
         {
             if let Some(regex) = &self.pattern {
                 if !regex.is_match(value) {
-                    return Err(SchemaErrorKind::ValidationError {
+                    return Err(ValidationErrorKind::ValidationError {
                         error: "supplied value does not match regex pattern for field",
                     }
                     .into());
@@ -268,7 +275,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "string",
                 actual: "integer"
             }
@@ -292,7 +299,7 @@ mod tests {
                     )
                 )
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "string",
                 actual: "array"
             }
@@ -308,7 +315,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello: world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "string",
                 actual: "hash"
             }
@@ -335,7 +342,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "string length is less than minLength"
             }
             .into()
@@ -348,7 +355,7 @@ mod tests {
                     &load_simple("hello woooooooooooooooorld!")
                 )
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "string length is greater than maxLength"
             }
             .into()
@@ -375,7 +382,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("world"))
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "supplied value does not match regex pattern for field",
             }
             .into()

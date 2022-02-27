@@ -1,4 +1,6 @@
-use crate::errors::{schema::condense_errors, schema::optional, SchemaError, SchemaErrorKind};
+use crate::errors::validation::condense_validation_errors;
+use crate::errors::{schema::schema_optional, SchemaError, SchemaErrorKind};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::utils::{try_into_usize, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::HashSet;
@@ -31,27 +33,34 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
                 "minContains",
                 "maxContains",
             ],
-        )?;
+        )
+        .map_err(SchemaErrorKind::from)?;
 
         let min_items = yaml
             .lookup("minItems", "integer", Yaml::as_i64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minItems"))
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         let max_items = yaml
             .lookup("maxItems", "integer", Yaml::as_i64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxItems"))
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         let unique_items = yaml
             .lookup("uniqueItems", "bool", Yaml::as_bool)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("uniqueItems"))
             .map(Option::from)
-            .or_else(optional(None))?
+            .or_else(schema_optional(None))?
             .unwrap_or(false);
 
         if let (Some(min_items), Some(max_items)) = (min_items, max_items) {
@@ -65,9 +74,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let items = yaml
             .lookup("items", "yaml", Option::from)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("items"))
             .map(Option::from)
-            .or_else(optional(None))?
+            .or_else(schema_optional(None))?
             .map(PropertyType::try_from)
             .transpose()
             .map_err(SchemaError::add_path_name("items"))?
@@ -75,9 +86,11 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let contains = yaml
             .lookup("contains", "yaml", Option::from)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("contains"))
             .map(Option::from)
-            .or_else(optional(None))?
+            .or_else(schema_optional(None))?
             .map(PropertyType::try_from)
             .transpose()
             .map_err(SchemaError::add_path_name("contains"))?
@@ -85,17 +98,21 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaArray<'schema> {
 
         let min_contains = yaml
             .lookup("minContains", "integer", Yaml::as_i64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("minContains"))
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         let max_contains = yaml
             .lookup("maxContains", "integer", Yaml::as_i64)
+            .map_err(SchemaErrorKind::from)
+            .map_err(SchemaError::from)
             .and_then(try_into_usize)
             .map_err(SchemaError::add_path_name("maxContains"))
             .map(Option::from)
-            .or_else(optional(None))?;
+            .or_else(schema_optional(None))?;
 
         // This does not seem like the nicest way to do this...
         match (&contains, &min_contains, &max_contains) {
@@ -137,12 +154,14 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
-        let items = yaml.as_type("array", Yaml::as_vec)?;
+    ) -> Result<(), ValidationError<'yaml>> {
+        let items = yaml
+            .as_type("array", Yaml::as_vec)
+            .map_err(ValidationErrorKind::from)?;
 
         if let Some(min_items) = &self.min_items {
             if items.len() < *min_items {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "array contains fewer than minItems items",
                 }
                 .into());
@@ -151,7 +170,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
 
         if let Some(max_items) = &self.max_items {
             if items.len() > *max_items {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "array contains more than maxItems items",
                 }
                 .into());
@@ -162,7 +181,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
             let mut set = HashSet::new();
             for (i, item) in items.iter().enumerate() {
                 if set.contains(item) {
-                    return Err(SchemaErrorKind::ValidationError {
+                    return Err(ValidationErrorKind::ValidationError {
                         error: "array contains duplicate key",
                     }
                     .with_path_index(i));
@@ -179,21 +198,21 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
                 .map(|(i, item)| {
                     contains
                         .validate(ctx, item)
-                        .map_err(SchemaError::add_path_index(i))
+                        .map_err(ValidationError::add_path_index(i))
                 })
                 .filter(Result::is_ok)
                 .count();
 
             if let Some(min) = self.min_contains {
                 if contained < min {
-                    return Err(SchemaErrorKind::ValidationError {
+                    return Err(ValidationErrorKind::ValidationError {
                         error:
                             "fewer than minContains items validated against schema in 'contains'",
                     }
                     .into());
                 }
             } else if contained < 1 {
-                return Err(SchemaErrorKind::ValidationError {
+                return Err(ValidationErrorKind::ValidationError {
                     error: "at least one item in the array must match the 'contains' schema",
                 }
                 .into());
@@ -201,7 +220,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
 
             if let Some(max) = self.max_contains {
                 if contained > max {
-                    return Err(SchemaErrorKind::ValidationError {
+                    return Err(ValidationErrorKind::ValidationError {
                         error: "more than minContains items validated against schema in 'contains'",
                     }
                     .into());
@@ -213,10 +232,10 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
             let mut errors = items.iter().enumerate().map(|(i, item)| {
                 schema
                     .validate(ctx, item)
-                    .map_err(SchemaError::add_path_index(i))
+                    .map_err(ValidationError::add_path_index(i))
             });
 
-            condense_errors(&mut errors)?;
+            condense_validation_errors(&mut errors)?;
         }
 
         Ok(())
@@ -389,7 +408,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "array",
                 actual: "string"
             }
@@ -405,7 +424,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("10"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "array",
                 actual: "integer"
             }
@@ -490,7 +509,7 @@ mod tests {
                     ),
                 )
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "array contains duplicate key"
             }
             .with_path_index(3)
@@ -538,7 +557,7 @@ mod tests {
                     ),
                 )
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "array contains more than maxItems items"
             }
             .into()
@@ -561,7 +580,7 @@ mod tests {
                     ),
                 )
                 .unwrap_err(),
-            SchemaErrorKind::ValidationError {
+            ValidationErrorKind::ValidationError {
                 error: "array contains fewer than minItems items"
             }
             .into()
@@ -610,19 +629,19 @@ mod tests {
                     )
                 )
                 .unwrap_err(),
-            SchemaErrorKind::Multiple {
+            ValidationErrorKind::Multiple {
                 errors: vec![
-                    SchemaErrorKind::WrongType {
+                    ValidationErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
                     .with_path_index(0),
-                    SchemaErrorKind::WrongType {
+                    ValidationErrorKind::WrongType {
                         expected: "integer",
                         actual: "string"
                     }
                     .with_path_index(4),
-                    SchemaErrorKind::WrongType {
+                    ValidationErrorKind::WrongType {
                         expected: "integer",
                         actual: "hash"
                     }
@@ -672,7 +691,7 @@ mod tests {
             schema
                 .validate(&Context::default(), &load_simple("hello: world"))
                 .unwrap_err(),
-            SchemaErrorKind::WrongType {
+            ValidationErrorKind::WrongType {
                 expected: "array",
                 actual: "hash"
             }

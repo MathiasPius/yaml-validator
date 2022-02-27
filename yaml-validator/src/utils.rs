@@ -1,4 +1,4 @@
-use crate::errors::{SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind, YamlError};
 use std::convert::TryInto;
 use std::fmt::Display;
 use std::ops::{Index, Sub};
@@ -88,28 +88,24 @@ pub(crate) fn load_simple(source: &'static str) -> Yaml {
 pub trait YamlUtils {
     fn type_to_str(&self) -> &'static str;
 
-    fn as_type<'schema, F, T>(
-        &'schema self,
-        expected: &'static str,
-        cast: F,
-    ) -> Result<T, SchemaError<'schema>>
+    fn as_type<'a, F, T>(&'a self, expected: &'static str, cast: F) -> Result<T, YamlError<'a>>
     where
-        F: FnOnce(&'schema Yaml) -> Option<T>;
+        F: FnOnce(&'a Yaml) -> Option<T>;
 
-    fn lookup<'schema, F, T>(
-        &'schema self,
-        field: &'schema str,
+    fn lookup<'a, F, T>(
+        &'a self,
+        field: &'a str,
         expected: &'static str,
         cast: F,
-    ) -> Result<T, SchemaError<'schema>>
+    ) -> Result<T, YamlError<'a>>
     where
-        F: FnOnce(&'schema Yaml) -> Option<T>;
+        F: FnOnce(&'a Yaml) -> Option<T>;
 
     fn strict_contents<'schema>(
         &'schema self,
         required: &[&'schema str],
         optional: &[&'schema str],
-    ) -> Result<&Hash, SchemaError<'schema>>;
+    ) -> Result<&Hash, YamlError<'schema>>;
 
     fn check_exclusive_fields<'schema>(
         &'schema self,
@@ -132,36 +128,29 @@ impl YamlUtils for Yaml {
         }
     }
 
-    fn as_type<'schema, F, T>(
-        &'schema self,
-        expected: &'static str,
-        cast: F,
-    ) -> Result<T, SchemaError<'schema>>
+    fn as_type<'a, F, T>(&'a self, expected: &'static str, cast: F) -> Result<T, YamlError<'a>>
     where
-        F: FnOnce(&'schema Yaml) -> Option<T>,
+        F: FnOnce(&'a Yaml) -> Option<T>,
     {
-        cast(self).ok_or_else(|| {
-            SchemaErrorKind::WrongType {
-                expected,
-                actual: self.type_to_str(),
-            }
-            .into()
+        cast(self).ok_or_else(|| YamlError::WrongType {
+            expected,
+            actual: self.type_to_str(),
         })
     }
 
-    fn lookup<'schema, F, T>(
-        &'schema self,
-        field: &'schema str,
+    fn lookup<'a, F, T>(
+        &'a self,
+        field: &'a str,
         expected: &'static str,
         cast: F,
-    ) -> Result<T, SchemaError<'schema>>
+    ) -> Result<T, YamlError<'a>>
     where
-        F: FnOnce(&'schema Yaml) -> Option<T>,
+        F: FnOnce(&'a Yaml) -> Option<T>,
     {
         let value = self.index(field);
         match value {
-            Yaml::BadValue => Err(SchemaErrorKind::FieldMissing { field }.into()),
-            Yaml::Null => Err(SchemaErrorKind::FieldMissing { field }.into()),
+            Yaml::BadValue => Err(YamlError::FieldMissing { field }.into()),
+            Yaml::Null => Err(YamlError::FieldMissing { field }.into()),
             content => content.as_type(expected, cast),
         }
     }
@@ -170,29 +159,28 @@ impl YamlUtils for Yaml {
         &'schema self,
         required: &[&'schema str],
         optional: &[&'schema str],
-    ) -> Result<&Hash, SchemaError<'schema>> {
+    ) -> Result<&Hash, YamlError<'schema>> {
         let hash = self.as_type("hash", Yaml::as_hash)?;
 
         let missing = required
             .iter()
             .filter(|field| !hash.contains_key(&Yaml::String((**field).to_string())))
-            .map(|field| SchemaErrorKind::FieldMissing { field: *field });
+            .map(|field| YamlError::FieldMissing { field: *field });
 
         let extra = hash
             .keys()
             .map(|field| field.as_type("string", Yaml::as_str).unwrap())
             .filter(|field| !required.contains(&field) && !optional.contains(&field))
-            .map(|field| SchemaErrorKind::ExtraField { field });
+            .map(|field| YamlError::ExtraField { field });
 
-        let mut errors: Vec<SchemaError<'schema>> =
-            missing.chain(extra).map(SchemaErrorKind::into).collect();
+        let mut errors: Vec<YamlError<'schema>> = missing.chain(extra).collect();
 
         if errors.is_empty() {
             Ok(hash)
         } else if errors.len() == 1 {
             Err(errors.pop().unwrap())
         } else {
-            Err(SchemaErrorKind::Multiple { errors }.into())
+            Err(YamlError::Multiple { errors }.into())
         }
     }
 
@@ -200,7 +188,9 @@ impl YamlUtils for Yaml {
         &'schema self,
         exclusive_keys: &[&'static str],
     ) -> Result<(), SchemaError<'schema>> {
-        let hash = self.as_type("hash", Yaml::as_hash)?;
+        let hash = self
+            .as_type("hash", Yaml::as_hash)
+            .map_err(SchemaErrorKind::from)?;
 
         let conflicts: Vec<&'static str> = exclusive_keys
             .iter()
