@@ -1,4 +1,4 @@
-use crate::errors::{SchemaError, SchemaErrorKind};
+use crate::errors::{ValidationError, ValidationErrorKind};
 use crate::{Context, Validate};
 use yaml_rust::Yaml;
 
@@ -12,11 +12,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaReference<'schema
         &self,
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
-    ) -> Result<(), SchemaError<'yaml>> {
+    ) -> Result<(), ValidationError<'yaml>> {
         if let Some(schema) = ctx.get_schema(self.uri) {
             schema.validate(ctx, yaml)
         } else {
-            Err(SchemaErrorKind::UnknownSchema { uri: self.uri }.into())
+            Err(ValidationErrorKind::UnknownSchema { uri: self.uri }.into())
         }
     }
 }
@@ -33,7 +33,7 @@ mod tests {
             SchemaReference { uri: "test" }
                 .validate(&Context::default(), &load_simple("hello"))
                 .unwrap_err(),
-            SchemaErrorKind::UnknownSchema { uri: "test" }.into()
+                ValidationErrorKind::UnknownSchema { uri: "test" }.into()
         );
     }
 }
