@@ -78,7 +78,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaReal {
             .or_else(schema_optional(None))?;
 
         if let (Some(lower), Some(upper)) = (&minimum, &maximum) {
-            if !lower.has_span(&upper) {
+            if !lower.has_span(upper) {
                 return Err(SchemaErrorKind::MalformedField {
                     error: "range given for real value spans 0 possible values".into(),
                 }

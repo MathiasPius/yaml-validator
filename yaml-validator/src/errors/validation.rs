@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
 
-use super::YamlError;
+use super::GenericError;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ValidationErrorKind<'a> {
@@ -57,16 +57,16 @@ impl<'a> From<ValidationErrorKind<'a>> for ValidationError<'a> {
     }
 }
 
-impl<'a> From<YamlError<'a>> for ValidationErrorKind<'a> {
-    fn from(e: YamlError<'a>) -> Self {
+impl<'a> From<GenericError<'a>> for ValidationErrorKind<'a> {
+    fn from(e: GenericError<'a>) -> Self {
         match e {
-            YamlError::WrongType { expected, actual } => {
+            GenericError::WrongType { expected, actual } => {
                 ValidationErrorKind::WrongType { expected, actual }
             }
-            YamlError::FieldMissing { field } => ValidationErrorKind::FieldMissing { field },
-            YamlError::ExtraField { field } => ValidationErrorKind::ExtraField { field },
-            YamlError::MalformedField { error } => ValidationErrorKind::MalformedField { error },
-            YamlError::Multiple { errors } => ValidationErrorKind::Multiple {
+            GenericError::FieldMissing { field } => ValidationErrorKind::FieldMissing { field },
+            GenericError::ExtraField { field } => ValidationErrorKind::ExtraField { field },
+            GenericError::MalformedField { error } => ValidationErrorKind::MalformedField { error },
+            GenericError::Multiple { errors } => ValidationErrorKind::Multiple {
                 errors: errors
                     .into_iter()
                     .map(ValidationErrorKind::from)
@@ -77,8 +77,8 @@ impl<'a> From<YamlError<'a>> for ValidationErrorKind<'a> {
     }
 }
 
-impl<'a> From<YamlError<'a>> for ValidationError<'a> {
-    fn from(e: YamlError<'a>) -> Self {
+impl<'a> From<GenericError<'a>> for ValidationError<'a> {
+    fn from(e: GenericError<'a>) -> Self {
         ValidationErrorKind::from(e).into()
     }
 }

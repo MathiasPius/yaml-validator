@@ -47,15 +47,14 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaAllOf<'schema> {
         ctx: &'schema Context<'schema>,
         yaml: &'yaml Yaml,
     ) -> Result<(), ValidationError<'yaml>> {
-        let errs: Vec<_> = self
-            .items
-            .iter()
-            .enumerate()
-            .map(|(_, schema)| schema.validate(ctx, yaml))
-            .filter(Result::is_err)
-            .collect();
-
-        condense_validation_errors(&mut errs.into_iter())?;
+        condense_validation_errors(
+            &mut self
+                .items
+                .iter()
+                .enumerate()
+                .map(|(_, schema)| schema.validate(ctx, yaml))
+                .filter(Result::is_err),
+        )?;
         Ok(())
     }
 }
