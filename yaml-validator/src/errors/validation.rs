@@ -136,14 +136,3 @@ pub fn condense_validation_errors<'a, T>(
         Ok(())
     }
 }
-
-pub fn validation_optional<'a, T>(
-    default: T,
-) -> impl FnOnce(ValidationError<'a>) -> Result<T, ValidationError<'a>> {
-    move |err: ValidationError<'a>| -> Result<T, ValidationError<'a>> {
-        match err.kind {
-            ValidationErrorKind::FieldMissing { .. } => Ok(default),
-            _ => Err(err),
-        }
-    }
-}

@@ -14,13 +14,10 @@ use modifiers::*;
 use types::*;
 
 pub use errors::schema::{SchemaError, SchemaErrorKind};
-use errors::{
-    schema::{condense_schema_errors, schema_optional},
-    ValidationError,
-};
+use errors::{schema::condense_schema_errors, ValidationError};
 
 use crate::types::bool::SchemaBool;
-use utils::YamlUtils;
+use utils::{OptionalLookup, YamlUtils};
 
 /// Validation trait implemented by all types, as well as the [Schema](crate::Schema) type
 pub trait Validate<'yaml, 'schema: 'yaml> {
@@ -116,18 +113,16 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if let Some(uri) = yaml
             .lookup("$ref", "string", Yaml::as_str)
-            .map_err(SchemaError::from)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()
+            .map_err(SchemaError::from)?
         {
             return Ok(PropertyType::Reference(SchemaReference { uri }));
         }
 
         if yaml
             .lookup("not", "hash", Option::from)
-            .map_err(SchemaError::from)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()
+            .map_err(SchemaError::from)?
             .is_some()
         {
             return Ok(PropertyType::Not(SchemaNot::try_from(yaml)?));
@@ -135,9 +130,8 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("oneOf", "hash", Option::from)
-            .map_err(SchemaError::from)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()
+            .map_err(SchemaError::from)?
             .is_some()
         {
             return Ok(PropertyType::OneOf(SchemaOneOf::try_from(yaml)?));
@@ -145,9 +139,8 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("allOf", "hash", Option::from)
-            .map_err(SchemaError::from)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()
+            .map_err(SchemaError::from)?
             .is_some()
         {
             return Ok(PropertyType::AllOf(SchemaAllOf::try_from(yaml)?));
@@ -155,9 +148,8 @@ impl<'schema> TryFrom<&'schema Yaml> for PropertyType<'schema> {
 
         if yaml
             .lookup("anyOf", "hash", Option::from)
-            .map_err(SchemaError::from)
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()
+            .map_err(SchemaError::from)?
             .is_some()
         {
             return Ok(PropertyType::AnyOf(SchemaAnyOf::try_from(yaml)?));

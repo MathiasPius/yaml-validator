@@ -1,7 +1,7 @@
-use crate::errors::validation::{condense_validation_errors, validation_optional};
+use crate::errors::validation::condense_validation_errors;
 use crate::errors::ValidationError;
-use crate::errors::{schema::condense_schema_errors, schema::schema_optional, SchemaError};
-use crate::utils::YamlUtils;
+use crate::errors::{schema::condense_schema_errors, SchemaError};
+use crate::utils::{OptionalLookup, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
@@ -37,8 +37,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
             .lookup("required", "array", Yaml::as_vec)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("required"))
-            .map(Option::from)
-            .or_else(schema_optional(None))?
+            .into_optional()?
             .map(|fields| {
                 fields
                     .iter()
@@ -79,10 +78,11 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
         let mut errors = self.items.iter().map(|(name, schema_item)| {
             let item = yaml
                 .lookup(name, "yaml", Option::from)
+                .into_optional()
                 .map(Option::Some)
                 .map_err(ValidationError::from)
-                .map_err(ValidationError::add_path_name(name))
-                .or_else(validation_optional(None))?;
+                .map_err(ValidationError::add_path_name(name))?
+                .flatten();
 
             if let Some(item) = item {
                 schema_item

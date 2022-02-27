@@ -2,9 +2,8 @@
 
 use thiserror::Error;
 
-use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
-
 use super::GenericError;
+use crate::breadcrumb::{Breadcrumb, BreadcrumbSegment, BreadcrumbSegmentVec};
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SchemaErrorKind<'a> {
@@ -85,17 +84,6 @@ impl<'a> SchemaErrorKind<'a> {
         let mut err: SchemaError = self.into();
         err.state.push(BreadcrumbSegment::Index(index));
         err
-    }
-}
-
-pub fn schema_optional<'a, T>(
-    default: T,
-) -> impl FnOnce(SchemaError<'a>) -> Result<T, SchemaError<'a>> {
-    move |err: SchemaError<'a>| -> Result<T, SchemaError<'a>> {
-        match err.kind {
-            SchemaErrorKind::FieldMissing { .. } => Ok(default),
-            _ => Err(err),
-        }
     }
 }
 
