@@ -14,10 +14,10 @@ use modifiers::*;
 use types::*;
 
 pub use errors::schema::{SchemaError, SchemaErrorKind};
-use errors::{schema::condense_schema_errors, ValidationError};
+use errors::ValidationError;
 
 use crate::types::bool::SchemaBool;
-use utils::{OptionalLookup, YamlUtils};
+use utils::{CondenseErrors, OptionalLookup, YamlUtils};
 
 /// Validation trait implemented by all types, as well as the [Schema](crate::Schema) type
 pub trait Validate<'yaml, 'schema: 'yaml> {
@@ -67,17 +67,11 @@ impl<'schema> Context<'schema> {
 impl<'schema> TryFrom<&'schema [Yaml]> for Context<'schema> {
     type Error = SchemaError<'schema>;
     fn try_from(documents: &'schema [Yaml]) -> Result<Self, Self::Error> {
-        let (schemas, errs): (Vec<_>, Vec<_>) = documents
-            .iter()
-            .map(Schema::try_from)
-            .partition(Result::is_ok);
-
-        condense_schema_errors(&mut errs.into_iter())?;
+        let schemas = SchemaError::condense_errors(&mut documents.iter().map(Schema::try_from))?;
 
         Ok(Context {
             schemas: schemas
                 .into_iter()
-                .map(Result::unwrap)
                 .map(|schema| (schema.uri, schema))
                 .collect(),
         })

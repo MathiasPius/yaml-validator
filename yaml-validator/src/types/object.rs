@@ -1,6 +1,6 @@
-use crate::errors::validation::condense_validation_errors;
+use crate::errors::SchemaError;
 use crate::errors::ValidationError;
-use crate::errors::{schema::condense_schema_errors, SchemaError};
+use crate::utils::CondenseErrors;
 use crate::utils::{OptionalLookup, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::BTreeMap;
@@ -20,45 +20,35 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaObject<'schema> {
 
         let items = yaml.lookup("items", "hash", Yaml::as_hash)?;
 
-        let (items, errs): (Vec<_>, Vec<_>) = items
-            .iter()
-            .map(|property| {
+        let items: BTreeMap<_, _> =
+            SchemaError::condense_errors(&mut items.iter().map(|property| {
                 let name = property.0.as_type("string", Yaml::as_str)?;
                 PropertyType::try_from(property.1)
                     .map_err(SchemaError::add_path_name(name))
                     .map_err(SchemaError::add_path_name("items"))
                     .map(|prop| (name, prop))
-            })
-            .partition(Result::is_ok);
+            }))?
+            .into_iter()
+            .collect();
 
-        condense_schema_errors(&mut errs.into_iter())?;
-
-        let required: Option<(Vec<_>, Vec<_>)> = yaml
+        let required = yaml
             .lookup("required", "array", Yaml::as_vec)
             .map_err(SchemaError::from)
             .map_err(SchemaError::add_path_name("required"))
             .into_optional()?
             .map(|fields| {
-                fields
-                    .iter()
-                    .map(|field| -> Result<&'schema str, Self::Error> {
+                SchemaError::condense_errors(&mut fields.iter().map(
+                    |field| -> Result<&'schema str, Self::Error> {
                         field
                             .as_type("string", Yaml::as_str)
                             .map_err(SchemaError::from)
-                    })
-                    .partition(Result::is_ok)
+                    },
+                ))
             });
 
-        let required = if let Some((required, errs)) = required {
-            condense_schema_errors(&mut errs.into_iter())?;
-            Some(required.into_iter().map(Result::unwrap).collect())
-        } else {
-            None
-        };
-
         Ok(SchemaObject {
-            items: items.into_iter().map(Result::unwrap).collect(),
-            required,
+            items,
+            required: required.transpose()?,
         })
     }
 }
@@ -93,7 +83,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaObject<'schema> {
             Ok(())
         });
 
-        condense_validation_errors(&mut errors)?;
+        ValidationError::condense_errors(&mut errors)?;
         Ok(())
     }
 }

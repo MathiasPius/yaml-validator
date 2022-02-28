@@ -96,6 +96,12 @@ impl<'a> From<SchemaErrorKind<'a>> for SchemaError<'a> {
     }
 }
 
+impl<'a> From<Vec<SchemaError<'a>>> for SchemaError<'a> {
+    fn from(errors: Vec<SchemaError<'a>>) -> Self {
+        SchemaErrorKind::Multiple { errors }.into()
+    }
+}
+
 impl<'a> From<GenericError<'a>> for SchemaErrorKind<'a> {
     fn from(e: GenericError<'a>) -> Self {
         match e {
@@ -118,22 +124,6 @@ impl<'a> From<GenericError<'a>> for SchemaErrorKind<'a> {
 impl<'a> From<GenericError<'a>> for SchemaError<'a> {
     fn from(e: GenericError<'a>) -> Self {
         SchemaErrorKind::from(e).into()
-    }
-}
-
-pub fn condense_schema_errors<'a, T>(
-    iter: &mut dyn Iterator<Item = Result<T, SchemaError<'a>>>,
-) -> Result<(), SchemaError<'a>> {
-    let mut errors: Vec<SchemaError> = iter.filter_map(Result::err).collect();
-
-    if !errors.is_empty() {
-        if errors.len() == 1 {
-            Err(errors.pop().unwrap())
-        } else {
-            Err(SchemaErrorKind::Multiple { errors }.into())
-        }
-    } else {
-        Ok(())
     }
 }
 
