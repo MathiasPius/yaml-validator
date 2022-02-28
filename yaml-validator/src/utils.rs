@@ -1,6 +1,6 @@
 use crate::errors::{GenericError, SchemaError, SchemaErrorKind};
 use std::convert::TryInto;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::ops::{Index, Sub};
 
 use yaml_rust::{yaml::Hash, Yaml};
@@ -246,6 +246,34 @@ impl<'a, T> OptionalLookup<'a, T, SchemaError<'a>> for Result<T, SchemaError<'a>
                 SchemaErrorKind::FieldMissing { field: _ } => Ok(None),
                 _ => Err(e),
             },
+        }
+    }
+}
+
+/// Helper function for combining an iterator of Result<T, E> to a Result<Vec<T>, E> where E encompasses
+/// all the errors from the iterator. Returns Ok(Vec<T>) if no errors found, or Err(E) if any error is found.
+pub trait CondenseErrors<T>: Sized {
+    fn condense_errors(results: &mut dyn Iterator<Item = Result<T, Self>>) -> Result<Vec<T>, Self>;
+}
+
+impl<'a, T, E> CondenseErrors<T> for E
+where
+    T: Debug,
+    E: From<Vec<Self>> + Debug,
+{
+    fn condense_errors(results: &mut dyn Iterator<Item = Result<T, Self>>) -> Result<Vec<T>, Self> {
+        let (values, mut errors): (Vec<_>, Vec<_>) = results.partition(Result::is_ok);
+
+        if errors.is_empty() {
+            Ok(values.into_iter().map(Result::unwrap).collect())
+        } else if errors.len() == 1 {
+            errors.pop().unwrap().map(|v| vec![v])
+        } else {
+            Err(errors
+                .into_iter()
+                .map(Result::unwrap_err)
+                .collect::<Vec<_>>()
+                .into())
         }
     }
 }

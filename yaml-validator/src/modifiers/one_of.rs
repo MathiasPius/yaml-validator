@@ -1,7 +1,6 @@
-use crate::errors::validation::condense_validation_errors;
-use crate::errors::{schema::condense_schema_errors, SchemaError, SchemaErrorKind};
+use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::errors::{ValidationError, ValidationErrorKind};
-use crate::utils::YamlUtils;
+use crate::utils::{CondenseErrors, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::convert::TryFrom;
 use yaml_rust::Yaml;
@@ -16,15 +15,14 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaOneOf<'schema> {
 
     fn try_from(yaml: &'schema Yaml) -> Result<Self, Self::Error> {
         yaml.strict_contents(&["oneOf"], &[])?;
-        let (items, errs): (Vec<_>, Vec<_>) = yaml
-            .lookup("oneOf", "array", Yaml::as_vec)?
-            .iter()
-            .map(|property| {
-                PropertyType::try_from(property).map_err(SchemaError::add_path_name("items"))
-            })
-            .partition(Result::is_ok);
-
-        condense_schema_errors(&mut errs.into_iter())?;
+        let items = SchemaError::condense_errors(
+            &mut yaml
+                .lookup("oneOf", "array", Yaml::as_vec)?
+                .iter()
+                .map(|property| {
+                    PropertyType::try_from(property).map_err(SchemaError::add_path_name("items"))
+                }),
+        )?;
 
         if items.is_empty() {
             return Err(SchemaErrorKind::MalformedField {
@@ -33,9 +31,7 @@ impl<'schema> TryFrom<&'schema Yaml> for SchemaOneOf<'schema> {
             .with_path_name("oneOf"));
         }
 
-        Ok(SchemaOneOf {
-            items: items.into_iter().map(Result::unwrap).collect(),
-        })
+        Ok(SchemaOneOf { items })
     }
 }
 
@@ -55,7 +51,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaOneOf<'schema> {
         match valid.len() {
             0 => {
                 // If none of the options matched, return the errors from ALL the arms
-                Err(condense_validation_errors(&mut errs.into_iter()).unwrap_err())
+                Err(ValidationError::condense_errors(&mut errs.into_iter()).unwrap_err())
             }
             1 => Ok(()),
             _ => {

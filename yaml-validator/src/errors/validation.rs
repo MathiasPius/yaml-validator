@@ -55,6 +55,12 @@ impl<'a> From<ValidationErrorKind<'a>> for ValidationError<'a> {
     }
 }
 
+impl<'a> From<Vec<ValidationError<'a>>> for ValidationError<'a> {
+    fn from(errors: Vec<ValidationError<'a>>) -> Self {
+        ValidationErrorKind::Multiple { errors }.into()
+    }
+}
+
 impl<'a> From<GenericError<'a>> for ValidationErrorKind<'a> {
     fn from(e: GenericError<'a>) -> Self {
         match e {
@@ -118,21 +124,5 @@ impl<'a> ValidationError<'a> {
 impl<'a> std::fmt::Display for ValidationError<'a> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.flatten(fmt, "#".to_string())
-    }
-}
-
-pub fn condense_validation_errors<'a, T>(
-    iter: &mut dyn Iterator<Item = Result<T, ValidationError<'a>>>,
-) -> Result<(), ValidationError<'a>> {
-    let mut errors: Vec<ValidationError> = iter.filter_map(Result::err).collect();
-
-    if !errors.is_empty() {
-        if errors.len() == 1 {
-            Err(errors.pop().unwrap())
-        } else {
-            Err(ValidationErrorKind::Multiple { errors }.into())
-        }
-    } else {
-        Ok(())
     }
 }

@@ -1,7 +1,6 @@
-use crate::errors::validation::condense_validation_errors;
 use crate::errors::{SchemaError, SchemaErrorKind};
 use crate::errors::{ValidationError, ValidationErrorKind};
-use crate::utils::{try_into_usize, OptionalLookup, YamlUtils};
+use crate::utils::{try_into_usize, CondenseErrors, OptionalLookup, YamlUtils};
 use crate::{Context, PropertyType, Validate};
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -218,7 +217,7 @@ impl<'yaml, 'schema: 'yaml> Validate<'yaml, 'schema> for SchemaArray<'schema> {
                     .map_err(ValidationError::add_path_index(i))
             });
 
-            condense_validation_errors(&mut errors)?;
+            ValidationError::condense_errors(&mut errors)?;
         }
 
         Ok(())
