@@ -165,7 +165,7 @@ impl YamlUtils for Yaml {
         let missing = required
             .iter()
             .filter(|field| !hash.contains_key(&Yaml::String((**field).to_string())))
-            .map(|field| GenericError::FieldMissing { field: *field });
+            .map(|field| GenericError::FieldMissing { field });
 
         let extra = hash
             .keys()
@@ -256,7 +256,7 @@ pub trait CondenseErrors<T>: Sized {
     fn condense_errors(results: &mut dyn Iterator<Item = Result<T, Self>>) -> Result<Vec<T>, Self>;
 }
 
-impl<'a, T, E> CondenseErrors<T> for E
+impl<T, E> CondenseErrors<T> for E
 where
     T: Debug,
     E: From<Vec<Self>> + Debug,
