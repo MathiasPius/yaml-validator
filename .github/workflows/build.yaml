@@ -1,0 +1,61 @@
+on:
+  release:
+    types: [created]
+
+name: build
+
+jobs:
+  build:
+    name: build release assets
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: ubuntu-latest, toolchain: stable, target: x86_64-unknown-linux-gnu}
+          - {os: ubuntu-latest, toolchain: stable, target: aarch64-unknown-linux-gnu}
+          - {os: ubuntu-latest, toolchain: stable, target: arm-unknown-linux-gnueabi}
+          - {os: ubuntu-latest, toolchain: stable, target: armv7-unknown-linux-gnueabihf}
+          - {os: ubuntu-latest, toolchain: stable,  target: x86_64-unknown-linux-musl}
+          - {os: macos-latest,   toolchain: stable, target: x86_64-apple-darwin}
+          - {os: windows-latest, toolchain: stable-x86_64-pc-windows-gnu, target: x86_64-pc-windows-gnu}
+          - {os: windows-latest, toolchain: stable-x86_64-pc-windows-msvc, target: x86_64-pc-windows-msvc}
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.config.toolchain }}
+          target: ${{ matrix.config.target }}
+          override: true
+          default: true
+
+      - name: checkout code
+        uses: actions/checkout@v1
+
+      - name: build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --all --release
+
+      - name: get tag name
+        id: get_version
+        run: echo ::set-output name=version::``${GITHUB_REF#refs/tags/}``
+        shell: bash
+
+      - name: pack binaries if unix
+        if: matrix.config.os != 'windows-latest'
+        run: tar -C ./target/release -czvf vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.tar.gz vergit
+
+      - name: pack binaries if windows
+        if: matrix.config.os == 'windows-latest'
+        run: compress-archive ./target/release/vergit.exe vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.zip
+
+      - name: upload binaries to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.*
+          asset_name: vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
+          tag: ${{ github.ref }}
+          file_glob: true
+          overwrite: true
