@@ -26,7 +26,7 @@ impl<'a> From<SchemaError<'a>> for Error {
     }
 }
 
-impl<'a> std::fmt::Display for Error {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::File(e) => write!(f, "{}", e),

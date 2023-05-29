@@ -17,3 +17,6 @@ smallvec = { "version" = "1.8.0", optional = true }
 
 [features]
 default = ["regex", "smallvec"]
+regex = ["dep:regex"]
+smallvec = ["dep:smallvec"]
+
