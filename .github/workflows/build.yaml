@@ -44,18 +44,18 @@ jobs:
 
       - name: pack binaries if unix
         if: matrix.config.os != 'windows-latest'
-        run: tar -C ./target/release -czvf vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.tar.gz vergit
+        run: tar -C ./target/release -czvf yaml-validator-cli-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.tar.gz yaml-validator-cli
 
       - name: pack binaries if windows
         if: matrix.config.os == 'windows-latest'
-        run: compress-archive ./target/release/vergit.exe vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.zip
+        run: compress-archive ./target/release/yaml-validator-cli.exe yaml-validator-cli-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.zip
 
       - name: upload binaries to release
         uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.*
-          asset_name: vergit-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
+          file: yaml-validator-cli-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}.*
+          asset_name: yaml-validator-cli-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
           tag: ${{ github.ref }}
           file_glob: true
           overwrite: true
