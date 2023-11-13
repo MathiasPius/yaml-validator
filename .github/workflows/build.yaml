@@ -60,6 +60,13 @@ jobs:
           file_glob: true
           overwrite: true
 
+  publish:
+    name: publish crates
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
       - name: publish library to crates.io
         uses: katyo/publish-crates@v2
         with:
