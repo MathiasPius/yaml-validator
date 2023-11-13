@@ -69,6 +69,7 @@ jobs:
 
       - name: publish library to crates.io
         uses: katyo/publish-crates@v2
+        continue-on-error: true
         with:
           path: "./yaml-validator"
           registry-token: ${{ secrets.CARGO_LOGIN_TOKEN }}
@@ -77,6 +78,7 @@ jobs:
 
       - name: publish cli to crates.io
         uses: katyo/publish-crates@v2
+        continue-on-error: true
         with:
           path: "./yaml-validator-cli"
           registry-token: ${{ secrets.CARGO_LOGIN_TOKEN }}
