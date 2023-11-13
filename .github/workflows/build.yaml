@@ -60,7 +60,7 @@ jobs:
           file_glob: true
           overwrite: true
 
-  publish:
+  publish-library:
     name: publish crates
     runs-on: ubuntu-latest
     steps:
@@ -70,6 +70,7 @@ jobs:
       - name: publish library to crates.io
         uses: katyo/publish-crates@v2
         with:
+          path: "./yaml-validator"
           registry-token: ${{ secrets.CARGO_LOGIN_TOKEN }}
           args: --no-verify --package yaml-validator
           ignore-unpublished-changes: true
@@ -77,6 +78,7 @@ jobs:
       - name: publish cli to crates.io
         uses: katyo/publish-crates@v2
         with:
+          path: "./yaml-validator-cli"
           registry-token: ${{ secrets.CARGO_LOGIN_TOKEN }}
           args: --no-verify --package yaml-validator-cli
           ignore-unpublished-changes: true
