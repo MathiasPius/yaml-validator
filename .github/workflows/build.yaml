@@ -60,7 +60,7 @@ jobs:
           file_glob: true
           overwrite: true
 
-  publish-library:
+  publish:
     name: publish crates
     runs-on: ubuntu-latest
     steps:
