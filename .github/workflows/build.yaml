@@ -59,3 +59,17 @@ jobs:
           tag: ${{ github.ref }}
           file_glob: true
           overwrite: true
+
+      - name: publish library to crates.io
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_LOGIN_TOKEN }}
+          args: --no-verify --package yaml-validator
+          ignore-unpublished-changes: true
+
+      - name: publish cli to crates.io
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_LOGIN_TOKEN }}
+          args: --no-verify --package yaml-validator-cli
+          ignore-unpublished-changes: true
